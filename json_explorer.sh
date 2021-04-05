@@ -14,6 +14,7 @@
 ) && sourced='YES' || sourced='NO'
 
 json_explorer () {
+    local do_not_run
     for req_cmd in 'jq' 'fzf' 'json_info'; do
         if ! command -v "$req_cmd" > /dev/null 2>&1; then
             do_not_run='yes'
@@ -21,6 +22,9 @@ json_explorer () {
             "$req_cmd"
         fi
     done
+    if [[ -n "$do_not_run" ]]; then
+        return 1
+    fi
     local min_trunc path_delim usage
     min_trunc=20
     path_delim=' = '
