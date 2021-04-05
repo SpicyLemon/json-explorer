@@ -305,7 +305,7 @@ fi
 unset sourced
 cannot_export_f="$( export -f json_info )"
 if [[ -n "$cannot_export_f" ]]; then
-    export json_info
+    export json_info="$( sed 's/^json_info ()/()/' <<< "$cannot_export_f" )"
 else
     export -f json_info
 fi
