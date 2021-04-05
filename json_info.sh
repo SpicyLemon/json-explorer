@@ -106,25 +106,46 @@ EOF
     local max_width
     if command -v 'tput' > /dev/null 2>&1; then
         max_width="$( tput cols )"
+        if [[ "$max_width" -lt '40' ]]; then
+            max_width=0
+        fi
     else
         max_width=0
     fi
-    local path exit_code jq_args jq_max_width jq_filter jq_exit_code
+    local min_trunc path exit_code jq_args jq_max_width jq_filter jq_output blank_path jq_exit_code
+    # If there's more than one path, make sure none of them are so long that there wouldn't be much room left for a string.
+    # If there is one, don't truncate anything.
+    min_trunc=10
+    if [[ "$max_width" -gt '0' && "${#paths[@]}" -gt '1' ]]; then
+        for path in "${paths[@]}"; do
+            # The 3 here comes from the " = " put between the path and its info.
+            if [[ "$(( max_width - ${#path} - 3 ))" -lt "$min_trunc" ]]; then
+                max_width=0
+                break
+            fi
+        done
+    fi
     exit_code=0
     for path in "${paths[@]}"; do
         jq_max_width="$max_width"
         if [[ "${#paths[@]}" -gt '1' ]]; then
             printf '%s = ' "$path"
-            jq_max_width=$(( max_width - ${#path} - 3 ))
+            if [[ "$max_width" -gt '0' ]]; then
+                # The 3 here comes from the " = " put between the path and its info.
+                jq_max_width=$(( max_width - ${#path} - 3 ))
+                if [[ "$jq_max_width" -lt "$min_trunc" ]]; then
+                    jq_max_width=0
+                fi
+            fi
         fi
         jq_args=( -r --arg max_width_str "$jq_max_width" )
         printf -v jq_filter '($max_width_str|tonumber) as $max_width |
-def null_info: "null";
+def null_info:    "null";
 def boolean_info: "boolean: " + (.|tostring);
-def number_info: "number: " + (.|tostring);
-def string_info: "string: " + (.|@json| if $max_width == 0 or (.|length) <= ($max_width - 8) then . else (.[0:$max_width-11] + "...") end );
-def array_info: "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": unfinished";
-def object_info: "object: " + (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys|tostring);
+def number_info:  "number: " + (.|tostring);
+def string_info:  "string: " + (.|@json| if $max_width == 0 or (.|length) <= ($max_width - 8) then . else (.[0:$max_width-11] + "...") end );
+def array_info:   "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": unfinished";
+def object_info:  "object: " + (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys|tostring);
 %s | if (.|type) == "null" then (.|null_info)
    elif (.|type) == "boolean" then (.|boolean_info)
    elif (.|type) == "number" then (.|number_info)
@@ -134,13 +155,24 @@ def object_info: "object: " + (.|length|tostring) + " " + (if (.|length) == 1 th
    else ""
 end' "$path"
         if [[ -n "$input_file" ]]; then
-            jq ${jq_args[@]} "$jq_filter" "$input_file"
+            jq_output="$( jq ${jq_args[@]} "$jq_filter" "$input_file" 2> /dev/null )"
             jq_exit_code=$?
         elif [[ -n "$input" ]]; then
-            jq ${jq_args[@]} "$jq_filter" <<< "$input"
+            jq_output="$( jq ${jq_args[@]} "$jq_filter" <<< "$input" 2> /dev/null )"
             jq_exit_code=$?
         fi
-        if [[ "$jq_exit_code" -ne '0' ]]; then
+        if [[ "$jq_exit_code" -eq '0' ]]; then
+            if [[ "${#paths[@]}" -gt '1' && "$( wc -l <<< "$jq_output" )" -gt '1' ]]; then
+                blank_path="$( sed 's/./ /g' <<< "$path" )   "
+                # The path has already been printed, just print the first line
+                head -n 1 <<< "$jq_output"
+                # Now print the rest of the lines with the blank path appended.
+                tail -n +2 <<< "$jq_output" | sed "s/^/$blank_path/"
+            else
+                printf '%s\n' "$jq_output"
+            fi
+        else
+            printf 'Invalid path\n'
             exit_code=$jq_exit_code
         fi
     done
