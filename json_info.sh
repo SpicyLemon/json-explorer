@@ -144,7 +144,7 @@ def null_info:    "null";
 def boolean_info: "boolean: " + (.|tostring);
 def number_info:  "number: " + (.|tostring);
 def string_info:  "string: " + (.|@json| if $max_width == 0 or (.|length) <= ($max_width - 8) then . else (.[0:$max_width-11] + "...") end );
-def array_info:   "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": unfinished";
+def array_info:   "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": " + ([.[]|type] | reduce .[] as $item ([]; if (.|contains([$item])|not) then . + [$item] else . end) | tostring | gsub("[\\\\]\\\\[\\"]"; "") | gsub(","; " "));
 def object_info:  "object: " + (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys|tostring);
 %s | if (.|type) == "null" then (.|null_info)
    elif (.|type) == "boolean" then (.|boolean_info)
