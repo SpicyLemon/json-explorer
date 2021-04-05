@@ -303,8 +303,10 @@ if [[ "$sourced" != 'YES' ]]; then
     exit $?
 fi
 unset sourced
-cannot_export="$( export -f json_info )"
-if [[ -z "$cannot_export" ]]; then
+cannot_export_f="$( export -f json_info )"
+if [[ -n "$cannot_export_f" ]]; then
+    export json_info
+else
     export -f json_info
 fi
 unset cannot_export
