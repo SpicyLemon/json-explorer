@@ -25,7 +25,6 @@ json_explorer () {
     if [[ -n "$do_not_run" ]]; then
         return 1
     fi
-    jq '.' <<< "[]"
     local usage
     usage="$( cat << EOF
 json_explorer - Select paths and output json with the selected entries.
@@ -55,10 +54,9 @@ EOF
         return 1
     fi
 
-    jq '.' <<< "[]"
     local exit_code selections jpath result
     # Make sure the file contents are parseable json.
-    jq '.' "$filename"
+    jq '.' "$filename" > /dev/null
     exit_code=$?
     if [[ "$exit_code" -ne '0' ]]; then
         printf 'Invalid json.\n'
