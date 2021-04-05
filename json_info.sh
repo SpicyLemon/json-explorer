@@ -275,5 +275,6 @@ if [[ "$sourced" != 'YES' ]]; then
     exit $?
 fi
 unset sourced
+export -f json_info
 
 return 0
