@@ -44,11 +44,15 @@ Utilities to help explore complex json structures.
 There are two main functions in here.
 1.  The `json_explorer` function allows selection of paths of a json structure along with preview information paths.
     Selected paths are then retrieved and printed via stdout.
-    ![json_explorer selection screenshot](/screenshots/json-explorer-entry-selection.png?raw=true)
-    ![json_explorer output screenshot](/screenshots/json-explorer-output.png?raw=true)
+    
+    ![json_explorer selection screenshot](/images/json-explorer-entry-selection.png?raw=true)
+    
+    ![json_explorer output screenshot](/images/json-explorer-output.png?raw=true)
+    
     The preview functionality relies on the `json_info` function.
 1.  The `json_info` function provides information about various paths in a json structure.
-    ![json_info output screenshot](/screenshots/json-info-output.png?raw=true)
+
+    ![json_info output screenshot](/images/json-info-output.png?raw=true)
 
 
 
@@ -194,13 +198,13 @@ object: 7 keys: ["a","b","c","d","e","f","g"]
 }
 ```
 
-Larger arrays and objects might not fully fit in the preview window, but hopefully there's enough info start you on your way to finding what you're looking for.
+Larger arrays and objects might not fully fit in the preview window, but hopefully there's enough info to start you on your way to finding what you're looking for.
 
 You can filter the displayed list by typing part of the path you're looking for. For example, to view only the `.g` entries, just type a `g`. If you only wanted paths containing an 'h' in them somewhere, just type an `h`. If you wanted to find all paths with "url" in the name, type `url`.
 
 Once you find an entry that you want to save for later, highlight it and press the `<tab>` button. A right-caret (aka "greater-than sign") will appear next to the line to indicate that you've selected it. You can select multiple paths this way. Pressing `<tab>` on a selected line will deselect it.
 
-Once you've selected your desired lines, press `enter` (or `return`). Pressing the `esc` key will exit out as if no lines are selected. If no lines are selected, and you press the `enter` (or `return`) key, the highlighted line is selected and submitted. If one ore more lines are selected when pressing `enter` (or `return`), only the selected lines are submitted; the highlighted line isn't automatically also selected. Lines that are selected, but no longer visible are still submitted.
+After you've selected your desired lines, press `enter` (or `return`). If no lines are selected, and you press the `enter` (or `return`) key, the highlighted line is selected and submitted. If one ore more lines are selected when pressing `enter` (or `return`), only the selected lines are submitted; the highlighted line isn't automatically also selected. Lines that are selected, but no longer visible are still submitted. Pressing the `esc` key will exit out as if no lines are selected. 
 
 For each line selected, a json object will be created containing the keys `"path"` and `"value"`. The `"path"` key will contain the path (that was selected). The `"value"` will contain the value at that path in the originally supplied json file.
 
