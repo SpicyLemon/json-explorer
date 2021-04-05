@@ -23,11 +23,16 @@ json_info () {
     usage="$( cat << EOF
 json_info - Outputs information about a json structure.
 
-Usage: json_info [-p <path>] [--show-path|--hide-path] {-f <filename>|-|-- <json>}
+Usage: json_info [-p <path>] [-r] [--show-path|--hide-path] {-f <filename>|-|-- <json>}
 
     -p <path> is the optional path to get information about.
         If provided multiple times, the information for each path provided will be used.
-        If not provided, all paths are used.
+        If not provided, '.' is used.
+    -r is an optional flag indicating that the paths provided are starting points,
+        and that all paths beyond that point should also be used.
+        Supplying this once will apply it to all provided paths.
+        Supplying this more than once has no affect.
+        If no paths are provided, all paths in the json are used.
     --show-path is an optional flag that causes the path to be part of the output.
         This is the default when there are more than one paths.
         If supplied with --hide-path, the last one is used.
@@ -43,9 +48,9 @@ Usage: json_info [-p <path>] [--show-path|--hide-path] {-f <filename>|-|-- <json
 
 EOF
 )"
-    local input_count paths input_file input_stdin input show_path
+    local input_count paths_in input_file input_stdin input show_path recurse
     input_count=0
-    paths=()
+    paths_in=()
     while [[ "$#" -gt '0' ]]; do
         case "$1" in
         -p|--path)
@@ -53,8 +58,11 @@ EOF
                 printf 'No path provided after %s\n' "$1" >&2
                 return 1
             fi
-            paths+=( "$2" )
+            paths_in+=( "$2" )
             shift
+            ;;
+        -r|--recurse|--recursive)
+            recurse='yes'
             ;;
         --show-path|--show-paths)
             show_path="yes"
@@ -116,7 +124,7 @@ EOF
         input_stdin=''
     fi
 
-    local exit_code jq_filter max_width min_trunc path_delim path jq_args jq_max_width jq_output blank_path jq_exit_code
+    local exit_code jq_filter paths max_width min_trunc path_delim path jq_args jq_max_width jq_output blank_path jq_exit_code
     # Make sure that the provided json is okay.
     if [[ -n "$input_file" ]]; then
         jq '.' "$input_file" > /dev/null
@@ -130,14 +138,29 @@ EOF
         return $exit_code
     fi
 
-    #If no paths were provided, get all paths.
-    if [[ "${#paths[@]}" -eq '0' ]]; then
-        jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" then . + "[" + ($item|tostring) + "]" else . + "." + $item  end ) | if . == "" then ".    " elif .[0:1] != "." then "." + . else . end'
-        if [[ -n "$input_file" ]]; then
+    # Figure out the actual paths to use.
+    paths=()
+    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" then . + "[" + ($item|tostring) + "]" else . + "." + $item  end ) | if . == "" then ".    " elif .[0:1] != "." then "." + . else . end'
+    if [[ "${#paths_in[@]}" -eq '0' ]]; then
+        # If no paths were provided, either just use '.' or get them all.
+        if [[ -z "$recurse" ]]; then
+            paths+=( '.' )
+        elif [[ -n "$input_file" ]]; then
             paths+=( $( jq -c -r "$jq_filter" "$input_file" 2> /dev/null ) )
         elif [[ -n "$input" ]]; then
             paths+=( $( jq -c -r "$jq_filter" <<< "$input" 2> /dev/null ) )
         fi
+    else
+        # One or more paths were provided loop through each and either add it or add it and all sub-paths.
+        for path in "${paths_in[@]}"; do
+            if [[ -z "$recurse" ]]; then
+                paths+=( "$path" )
+            elif [[ -n "$input_file" ]]; then
+                paths+=( $( jq -c -r "$path | $jq_filter" "$input_file" 2> /dev/null | sed "s/^\./$path/" ) )
+            elif [[ -n "$input" ]]; then
+                paths+=( $( jq -c -r "$path | $jq_filter" <<< "$input" 2> /dev/null | sed "s/^\./$path/" ) )
+            fi
+        done
     fi
 
     # Handle the default show path behavior and make sure that $show_path is either "yes" or empty.
