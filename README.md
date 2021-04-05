@@ -48,11 +48,11 @@ Utilities to help explore complex json structures.
 There are two main functions in here.
 1.  The `json_explorer` function allows selection of paths of a json structure along with preview information paths.
     Selected paths are then retrieved and printed via stdout.
-    
+
     ![json_explorer selection screenshot](/images/json-explorer-entry-selection.png?raw=true)
-    
+
     ![json_explorer output screenshot](/images/json-explorer-output.png?raw=true)
-    
+
     The preview functionality relies on the `json_info` function.
 1.  The `json_info` function provides information about various paths in a json structure.
 
@@ -208,7 +208,7 @@ You can filter the displayed list by typing part of the path you're looking for.
 
 Once you find an entry that you want to save for later, highlight it and press the `<tab>` button. A right-caret (aka "greater-than sign") will appear next to the line to indicate that you've selected it. You can select multiple paths this way. Pressing `<tab>` on a selected line will deselect it.
 
-After you've selected your desired lines, press `enter` (or `return`). If no lines are selected, and you press the `enter` (or `return`) key, the highlighted line is selected and submitted. If one ore more lines are selected when pressing `enter` (or `return`), only the selected lines are submitted; the highlighted line isn't automatically also selected. Lines that are selected, but no longer visible are still submitted. Pressing the `esc` key will exit out as if no lines are selected. 
+After you've selected your desired lines, press `enter` (or `return`). If no lines are selected, and you press the `enter` (or `return`) key, the highlighted line is selected and submitted. If one ore more lines are selected when pressing `enter` (or `return`), only the selected lines are submitted; the highlighted line isn't automatically also selected. Lines that are selected, but no longer visible are still submitted. Pressing the `esc` key will exit out as if no lines are selected.
 
 For each line selected, a json object will be created containing the keys `"path"` and `"value"`. The `"path"` key will contain the path (that was selected). The `"value"` will contain the value at that path in the originally supplied json file.
 
@@ -249,23 +249,28 @@ This function uses `jq` to provide information about different paths in a json s
 ```
 json_info - Outputs information about a json structure.
 
-Usage: json_info [-p <path>] [-r] [-d] [--show-path|--hide-path] [--max-string <num>] {-f <filename>|-|-- <json>}
+Usage: json_info [-p <path>] [-r] [-d] [--show-path|--hide-path|--just-paths] [--max-string <num>] {-f <filename>|-|-- <json>}
 
     -p <path> is the optional path to get information about.
         If provided multiple times, the information for each path provided will be used.
         If not provided, "." is used.
+
     -r is an optional flag indicating that the paths provided are starting points,
         and that all paths beyond that point should also be used.
         Supplying this once will apply it to all provided paths.
         Supplying this more than once has no affect.
         If no paths are provided, all paths in the json are used.
+
     -d is an optional flag indicating that for objects and arrays, the pretty json should be in the output.
+
     --show-path is an optional flag that causes the path to be part of the output.
         This is the default when there are more than one paths.
-        If supplied with --hide-path, the last one is used.
     --hide-path is an optional flag that causes the path to NOT be part of the output.
         This is the default when there is only one path.
-        If supplied with --show-path, the last one is used.
+    --just-paths is an optional flag that causes only the paths to be output (without the extra information).
+
+    If multiple arguments are --show-path, --hide-path, or --just-paths, only the last one will be used.
+
     --max-string <num> is the optional maximum width for strings to trigger truncation.
         If set to 0, no truncation will happen.
         If not provided, and tput is available, then the default is to use tput to get the width of the window.
@@ -398,6 +403,29 @@ array: 3 entries: string
 object: 1 key: ["h"]
 ```
 
+#### Demonstrating the `--just-paths` option.
+You will probably want to use the `-r` option with `--just-paths`.
+```sh
+> json_info --just-paths -r -f tests/object-complex-1.json
+```
+```
+.
+.a
+.b
+.c
+.d
+.e
+.f
+.f[0]
+.f[1]
+.f[2]
+.g
+.g[0]
+.g[1]
+.g[2]
+.g[3]
+.g[3].h
+```
 
 #### Demonstrating the `--max-string` option.
 Long strings are truncated so that the output line contains the provided number of characters:
