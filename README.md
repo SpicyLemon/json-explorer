@@ -537,15 +537,15 @@ Project Link: [https://github.com/SpicyLemon/json-explorer](https://github.com/S
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/SpicyLemon/repo.svg?style=for-the-badge
+[contributors-shield]: https://img.shields.io/github/contributors/SpicyLemon/json-explorer.svg?style=for-the-badge
 [contributors-url]: https://github.com/SpicyLemon/json-explorer/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/SpicyLemon/repo.svg?style=for-the-badge
+[forks-shield]: https://img.shields.io/github/forks/SpicyLemon/json-explorer.svg?style=for-the-badge
 [forks-url]: https://github.com/SpicyLemon/json-explorer/network/members
-[stars-shield]: https://img.shields.io/github/stars/SpicyLemon/repo.svg?style=for-the-badge
+[stars-shield]: https://img.shields.io/github/stars/SpicyLemon/json-explorer.svg?style=for-the-badge
 [stars-url]: https://github.com/SpicyLemon/json-explorer/stargazers
-[issues-shield]: https://img.shields.io/github/issues/SpicyLemon/repo.svg?style=for-the-badge
+[issues-shield]: https://img.shields.io/github/issues/SpicyLemon/json-explorer.svg?style=for-the-badge
 [issues-url]: https://github.com/SpicyLemon/json-explorer/issues
-[license-shield]: https://img.shields.io/github/license/SpicyLemon/repo.svg?style=for-the-badge
+[license-shield]: https://img.shields.io/github/license/SpicyLemon/json-explorer.svg?style=for-the-badge
 [license-url]: https://github.com/SpicyLemon/json-explorer/blob/master/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/danny-wedul/
