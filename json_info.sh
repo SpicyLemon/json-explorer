@@ -74,7 +74,7 @@ EOF
             input_count=$(( input_count + 1 ))
             ;;
         *)
-            printf 'Unknown option: [%s].\n' "$1" >&2
+            printf 'Unknown argument: [%s].\n' "$1" >&2
             return 1
             ;;
         esac
