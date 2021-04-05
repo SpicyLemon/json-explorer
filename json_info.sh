@@ -25,7 +25,7 @@ json_info () {
     usage="$( cat << EOF
 json_info - Outputs information about a json structure.
 
-Usage: json_info [-p <path>] [-r] [--show-path|--hide-path] [--max-string <num>] {-f <filename>|-|-- <json>}
+Usage: json_info [-p <path>] [-r] [-d] [--show-path|--hide-path] [--max-string <num>] {-f <filename>|-|-- <json>}
 
     -p <path> is the optional path to get information about.
         If provided multiple times, the information for each path provided will be used.
@@ -35,6 +35,7 @@ Usage: json_info [-p <path>] [-r] [--show-path|--hide-path] [--max-string <num>]
         Supplying this once will apply it to all provided paths.
         Supplying this more than once has no affect.
         If no paths are provided, all paths in the json are used.
+    -d is an optional flag indicating that for objects and arrays, the pretty json should be in the output.
     --show-path is an optional flag that causes the path to be part of the output.
         This is the default when there are more than one paths.
         If supplied with --hide-path, the last one is used.
@@ -56,7 +57,7 @@ Usage: json_info [-p <path>] [-r] [--show-path|--hide-path] [--max-string <num>]
 
 EOF
 )"
-    local input_count paths_in input_file input_stdin input show_path recurse max_string
+    local input_count paths_in input_file input_stdin input show_path recurse max_string show_data
     input_count=0
     paths_in=()
     while [[ "$#" -gt '0' ]]; do
@@ -75,6 +76,9 @@ EOF
             ;;
         -r|--recurse|--recursive)
             recurse='yes'
+            ;;
+        -d|--data|--show-data)
+            show_data='yes'
             ;;
         --show-path|--show-paths)
             show_path="yes"
@@ -150,7 +154,7 @@ EOF
         return 1
     fi
 
-    local exit_code jq_filter paths path jq_args jq_max_string jq_output blank_path jq_exit_code
+    local exit_code jq_filter paths path jq_args jq_max_string jq_output blank_path jq_exit_code line_count
     # Make sure that the provided json is okay.
     if [[ -n "$input_file" ]]; then
         jq '.' "$input_file" > /dev/null
@@ -257,7 +261,8 @@ end' "$path"
             jq_exit_code=$?
         fi
         if [[ "$jq_exit_code" -eq '0' ]]; then
-            if [[ -n "$show_path" && "$( wc -l <<< "$jq_output" )" -gt '1' ]]; then
+            line_count="$( wc -l <<< "$jq_output" )"
+            if [[ -n "$show_path" && "$line_count" -gt '1' ]]; then
                 blank_path="$( sed 's/./ /g' <<< "$path" )   "
                 # The path has already been printed, just print the first line
                 head -n 1 <<< "$jq_output"
@@ -265,6 +270,13 @@ end' "$path"
                 tail -n +2 <<< "$jq_output" | sed "s/^/$blank_path/"
             else
                 printf '%s\n' "$jq_output"
+            fi
+            if [[ -n "$show_data" && "$line_count" -eq '1' && "$jq_output" =~ ^(object|array) ]]; then
+                if [[ -n "$input_file" ]]; then
+                    jq "$path" "$input_file" 2> /dev/null
+                elif [[ -n "$input" ]]; then
+                    jq "$path" <<< "$input" 2> /dev/null
+                fi
             fi
         else
             printf 'Invalid path.\n'
