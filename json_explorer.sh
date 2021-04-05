@@ -65,9 +65,15 @@ EOF
     selections="$( jq -c -r 'path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("\\\\")) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end' "$filename" | fzf --multi --preview="printf '%s\n' {} && json_info -p {} -f '$filename' -d" --preview-window=':40%:wrap' --tac --cycle )"
     result='[]'
     while IFS= read -r path; do
-        result="$( jq -c --arg path "$path" --arg value "$( jq -c "$path" "$filename" )" ' . + [{"path":$path,"value":($value|fromjson)}]' <<< "$result" )"
+        if [[ -n "$path" ]]; then
+            result="$( jq -c --arg path "$path" --arg value "$( jq -c "$path" "$filename" )" ' . + [{"path":$path,"value":($value|fromjson)}]' <<< "$result" )"
+        fi
     done <<< "$selections"
-    jq '.' <<< "$result"
+    if [[ "$result" != '[]' ]]; then
+        jq '.' <<< "$result"
+        return $?
+    fi
+    return 0
 }
 
 if [[ "$sourced" != 'YES' ]]; then
