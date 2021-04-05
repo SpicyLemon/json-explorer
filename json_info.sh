@@ -214,8 +214,12 @@ EOF
 
     # A max width of 0 is treated as deactivating the max-width behavior.
     if [[ -z "$max_string" ]]; then
-        #If no max string width was given, try to set it using tput.
-        if command -v 'tput' > /dev/null 2>&1; then
+        # If no max string width was given, look for a FZF_PREVIEW_COLUMNS value.
+        # If we have one, limit the string to 5 lines in the preview window.
+        # Otherwise, try to set it using tput.
+        if [[ -n "$FZF_PREVIEW_COLUMNS" ]]; then
+            max_string=$(( FZF_PREVIEW_COLUMNS * 5 ))
+        elif command -v 'tput' > /dev/null 2>&1; then
             max_string="$( tput cols )"
             if [[ "$max_string" -lt "$min_trunc" ]]; then
                 # If the window is skinnier than the minimum truncation width, skip truncation.
