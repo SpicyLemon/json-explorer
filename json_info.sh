@@ -25,23 +25,28 @@ json_info () {
     usage="$( cat << EOF
 json_info - Outputs information about a json structure.
 
-Usage: json_info [-p <path>] [-r] [-d] [--show-path|--hide-path] [--max-string <num>] {-f <filename>|-|-- <json>}
+Usage: json_info [-p <path>] [-r] [-d] [--show-path|--hide-path|--just-paths] [--max-string <num>] {-f <filename>|-|-- <json>}
 
     -p <path> is the optional path to get information about.
         If provided multiple times, the information for each path provided will be used.
         If not provided, "." is used.
+
     -r is an optional flag indicating that the paths provided are starting points,
         and that all paths beyond that point should also be used.
         Supplying this once will apply it to all provided paths.
         Supplying this more than once has no affect.
         If no paths are provided, all paths in the json are used.
+
     -d is an optional flag indicating that for objects and arrays, the pretty json should be in the output.
+
     --show-path is an optional flag that causes the path to be part of the output.
         This is the default when there are more than one paths.
-        If supplied with --hide-path, the last one is used.
     --hide-path is an optional flag that causes the path to NOT be part of the output.
         This is the default when there is only one path.
-        If supplied with --show-path, the last one is used.
+    --just-paths is an optional flag that causes only the paths to be output (without the extra information).
+
+    If multiple arguments are --show-path, --hide-path, or --just-paths, only the last one will be used.
+
     --max-string <num> is the optional maximum width for strings to trigger truncation.
         If set to 0, no truncation will happen.
         If not provided, and tput is available, then the default is to use tput to get the width of the window.
@@ -81,10 +86,13 @@ EOF
             show_data='yes'
             ;;
         --show-path|--show-paths)
-            show_path="yes"
+            show_path='yes'
             ;;
         --hide-path|--hide-paths)
-            show_path="no"
+            show_path='no'
+            ;;
+        --just-path|--just-paths)
+            show_path='only'
             ;;
         --max-string)
             if [[ -z "$2" ]]; then
@@ -205,10 +213,10 @@ EOF
         fi
     done <<< "$paths_str"
 
-    # Handle the default show path behavior and make sure that $show_path is either "yes" or empty.
+    # Handle the default show path behavior and make sure that $show_path is either "yes", "only" or empty.
     if [[ -z "$show_path" && "${#paths[@]}" -gt '1' ]]; then
         show_path='yes'
-    elif [[ "$show_path" != 'yes' ]]; then
+    elif [[ "$show_path" != 'yes' && "$show_path" != 'only' ]]; then
         show_path=''
     fi
 
@@ -242,6 +250,10 @@ EOF
     # Alright. It's showtime. Loop through each path and get the info for it.
     exit_code=0
     for jpath in "${paths[@]}"; do
+        if [[ "$show_path" == 'only' ]]; then
+            printf '%s\n' "$jpath"
+            continue
+        fi
         jq_max_string="$max_string"
         if [[ -n "$show_path" ]]; then
             printf '%s%s' "$jpath" "$path_delim"
