@@ -154,7 +154,7 @@ EOF
         return 1
     fi
 
-    local exit_code jq_filter paths path esc_path paths_str jq_args jq_max_string jq_output blank_path jq_exit_code line_count
+    local exit_code jq_filter paths jpath esc_path paths_str jq_args jq_max_string jq_output blank_path jq_exit_code line_count
     # Make sure that the provided json is okay.
     if [[ -n "$input_file" ]]; then
         jq '.' "$input_file" > /dev/null
@@ -184,24 +184,24 @@ EOF
         fi
     else
         # One or more paths were provided loop through each and either add it or add it and all sub-paths.
-        for path in "${paths_in[@]}"; do
+        for jpath in "${paths_in[@]}"; do
             if [[ -z "$recurse" ]]; then
-                printf -v paths_str '%b%b\n' "$paths_str" "$path"
+                printf -v paths_str '%b%b\n' "$paths_str" "$jpath"
             elif [[ -n "$input_file" ]]; then
-                esc_path="$( sed 's/[\/&]/\\&/g' <<< "$path" )"
-                printf -v paths_str '%b%b\n' "$paths_str" "$( jq -r "$path | $jq_filter" "$input_file" 2> /dev/null | sed "s/^\./$esc_path/" )"
+                esc_path="$( sed 's/[\/&]/\\&/g' <<< "$jpath" )"
+                printf -v paths_str '%b%b\n' "$paths_str" "$( jq -r "$jpath | $jq_filter" "$input_file" 2> /dev/null | sed "s/^\./$esc_path/" )"
             elif [[ -n "$input" ]]; then
-                esc_path="$( sed 's/[\/&]/\\&/g' <<< "$path" )"
-                printf -v paths_str '%b%b\n' "$paths_str" "$( jq -r "$path | $jq_filter" <<< "$input" 2> /dev/null | sed "s/^\./$esc_path/" )"
+                esc_path="$( sed 's/[\/&]/\\&/g' <<< "$jpath" )"
+                printf -v paths_str '%b%b\n' "$paths_str" "$( jq -r "$jpath | $jq_filter" <<< "$input" 2> /dev/null | sed "s/^\./$esc_path/" )"
             fi
         done
     fi
 
     # Convert each path line into an array entry.
     paths=()
-    while IFS= read -r path; do
-        if [[ -n "$path" ]]; then
-            paths+=( "$path" )
+    while IFS= read -r jpath; do
+        if [[ -n "$jpath" ]]; then
+            paths+=( "$jpath" )
         fi
     done <<< "$paths_str"
 
@@ -223,8 +223,8 @@ EOF
             elif [[ -n "$show_path" ]]; then
                 # If showing the path, make sure none of them are so long that there wouldn't be much room left for a string.
                 # If there is one that's too long, don't auto-truncate anything.
-                for path in "${paths[@]}"; do
-                    if [[ "$(( max_string - ${#path} - ${#path_delim} ))" -lt "$min_trunc" ]]; then
+                for jpath in "${paths[@]}"; do
+                    if [[ "$(( max_string - ${#jpath} - ${#path_delim} ))" -lt "$min_trunc" ]]; then
                         max_string=0
                         break
                     fi
@@ -237,12 +237,12 @@ EOF
 
     # Alright. It's showtime. Loop through each path and get the info for it.
     exit_code=0
-    for path in "${paths[@]}"; do
+    for jpath in "${paths[@]}"; do
         jq_max_string="$max_string"
         if [[ -n "$show_path" ]]; then
-            printf '%s%s' "$path" "$path_delim"
+            printf '%s%s' "$jpath" "$path_delim"
             if [[ "$max_string" -gt '0' ]]; then
-                jq_max_string=$(( max_string - ${#path} - ${#path_delim} ))
+                jq_max_string=$(( max_string - ${#jpath} - ${#path_delim} ))
                 if [[ "$jq_max_string" -lt "1" ]]; then
                     jq_max_string=1
                 fi
@@ -264,7 +264,7 @@ def object_info:  "object: " + (.|length|tostring) + " " + (if (.|length) == 1 t
    elif (.|type) == "array" then (.|array_info)
    elif (.|type) == "object" then (.|object_info)
    else ""
-end' "$path"
+end' "$jpath"
         if [[ -n "$input_file" ]]; then
             jq_output="$( jq ${jq_args[@]} "$jq_filter" "$input_file" 2> /dev/null )"
             jq_exit_code=$?
@@ -275,7 +275,7 @@ end' "$path"
         if [[ "$jq_exit_code" -eq '0' ]]; then
             line_count="$( wc -l <<< "$jq_output" )"
             if [[ -n "$show_path" && "$line_count" -gt '1' ]]; then
-                blank_path="$( sed 's/./ /g' <<< "$path" )   "
+                blank_path="$( sed 's/./ /g' <<< "$jpath" )   "
                 # The path has already been printed, just print the first line
                 head -n 1 <<< "$jq_output"
                 # Now print the rest of the lines with the blank path appended.
@@ -285,9 +285,9 @@ end' "$path"
             fi
             if [[ -n "$show_data" && "$line_count" -eq '1' && "$jq_output" =~ ^(object|array) ]]; then
                 if [[ -n "$input_file" ]]; then
-                    jq "$path" "$input_file" 2> /dev/null
+                    jq "$jpath" "$input_file" 2> /dev/null
                 elif [[ -n "$input" ]]; then
-                    jq "$path" <<< "$input" 2> /dev/null
+                    jq "$jpath" <<< "$input" 2> /dev/null
                 fi
             fi
         else

@@ -25,9 +25,8 @@ json_explorer () {
     if [[ -n "$do_not_run" ]]; then
         return 1
     fi
-    local min_trunc path_delim usage
-    min_trunc=20
-    path_delim=' = '
+    jq '.' <<< "[]"
+    local usage
     usage="$( cat << EOF
 json_explorer - Select paths and output json with the selected entries.
 
@@ -56,9 +55,10 @@ EOF
         return 1
     fi
 
-    local exit_code selections path result
+    jq '.' <<< "[]"
+    local exit_code selections jpath result
     # Make sure the file contents are parseable json.
-    jq '.' "$filename" > /dev/null
+    jq '.' "$filename"
     exit_code=$?
     if [[ "$exit_code" -ne '0' ]]; then
         printf 'Invalid json.\n'
@@ -68,9 +68,9 @@ EOF
     # Prompt for paths to be selected
     selections="$( jq -c -r 'path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("\\\\")) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end' "$filename" | fzf --multi --preview="printf '%s\n' {} && json_info -p {} -f '$filename' -d" --preview-window=':40%:wrap' --tac --cycle )"
     result='[]'
-    while IFS= read -r path; do
-        if [[ -n "$path" ]]; then
-            result="$( jq -c --arg path "$path" --arg value "$( jq -c "$path" "$filename" )" ' . + [{"path":$path,"value":($value|fromjson)}]' <<< "$result" )"
+    while IFS= read -r jpath; do
+        if [[ -n "$jpath" ]]; then
+            result="$( jq -c --arg path "$jpath" --arg value "$( jq -c "$jpath" "$filename" )" ' . + [{"path":$path,"value":($value|fromjson)}]' <<< "$result" )"
         fi
     done <<< "$selections"
     if [[ "$result" != '[]' ]]; then
