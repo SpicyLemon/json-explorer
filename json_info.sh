@@ -19,15 +19,17 @@ json_info () {
         jq
         return $?
     fi
-    local usage
+    local min_trunc path_delim usage
+    min_trunc=20
+    path_delim=' = '
     usage="$( cat << EOF
 json_info - Outputs information about a json structure.
 
-Usage: json_info [-p <path>] [-r] [--show-path|--hide-path] {-f <filename>|-|-- <json>}
+Usage: json_info [-p <path>] [-r] [--show-path|--hide-path] [--max-string <num>] {-f <filename>|-|-- <json>}
 
     -p <path> is the optional path to get information about.
         If provided multiple times, the information for each path provided will be used.
-        If not provided, '.' is used.
+        If not provided, "." is used.
     -r is an optional flag indicating that the paths provided are starting points,
         and that all paths beyond that point should also be used.
         Supplying this once will apply it to all provided paths.
@@ -39,6 +41,12 @@ Usage: json_info [-p <path>] [-r] [--show-path|--hide-path] {-f <filename>|-|-- 
     --hide-path is an optional flag that causes the path to NOT be part of the output.
         This is the default when there is only one path.
         If supplied with --show-path, the last one is used.
+    --max-string <num> is the optional maximum width for strings to trigger truncation.
+        If set to 0, no truncation will happen.
+        If not provided, and tput is available, then the default is to use tput to get the width of the window.
+        If not provided, and tput is not available, the default is to not truncate strings.
+        If the path is being shown, the length of the path is taken into consideration in order to try to
+        truncate the string and keep it on a single line.
 
     Exactly one of the following must be provided to define the input json.
         -f <filename> will load the json from the provided filename
@@ -48,7 +56,7 @@ Usage: json_info [-p <path>] [-r] [--show-path|--hide-path] {-f <filename>|-|-- 
 
 EOF
 )"
-    local input_count paths_in input_file input_stdin input show_path recurse
+    local input_count paths_in input_file input_stdin input show_path recurse max_string
     input_count=0
     paths_in=()
     while [[ "$#" -gt '0' ]]; do
@@ -69,6 +77,14 @@ EOF
             ;;
         --hide-path|--hide-paths)
             show_path="no"
+            ;;
+        --max-string)
+            if [[ -z "$2" ]]; then
+                printf 'No number provided after %s\n' "$1" >&2
+                return 1
+            fi
+            max_string="$( sed 's/^[[:space:]]+//; s/[[:space:]]$//;' <<< "$2" )"
+            shift
             ;;
         -f|--file)
             if [[ -z "$2" ]]; then
@@ -94,7 +110,7 @@ EOF
             input_count=$(( input_count + 1 ))
             ;;
         *)
-            printf 'Unknown argument: [%s].\n' "$1" >&2
+            printf 'Unknown argument: %s\n' "$1" >&2
             return 1
             ;;
         esac
@@ -102,7 +118,7 @@ EOF
     done
     # Make sure only one input method was provided.
     if [[ "$input_count" -eq '0' ]]; then
-        printf 'No input\n' >&2
+        printf 'No input.\n' >&2
         return 1
     elif [[ "$input_count" -ge '2' ]]; then
         printf 'Only one input can be defined.\n' >&2
@@ -111,10 +127,10 @@ EOF
     # If it's a file, make sure it exists.
     if [[ -n "$input_file" ]]; then
         if [[ -d "$input_file" ]]; then
-            printf 'Input file [%s] is a directory.' "$input_file" >&2
+            printf 'Input file [%s] is a directory.\n' "$input_file" >&2
             return 1
         elif [[ ! -f "$input_file" ]]; then
-            printf 'Input file [%s] does not exist.' "$input_file" >&2
+            printf 'Input file [%s] does not exist.\n' "$input_file" >&2
             return 1
         fi
     fi
@@ -124,7 +140,13 @@ EOF
         input_stdin=''
     fi
 
-    local exit_code jq_filter paths max_width min_trunc path_delim path jq_args jq_max_width jq_output blank_path jq_exit_code
+    # Make sure the max_string is a number.
+    if [[ -n "$max_string" && ! "$max_string" =~ ^[[:digit:]]+$ ]]; then
+        printf 'Invalid max string number: [%s].\n' "$max_string" >&2
+        return 1
+    fi
+
+    local exit_code jq_filter paths path jq_args jq_max_string jq_output blank_path jq_exit_code
     # Make sure that the provided json is okay.
     if [[ -n "$input_file" ]]; then
         jq '.' "$input_file" > /dev/null
@@ -134,7 +156,7 @@ EOF
         exit_code=$?
     fi
     if [[ "$exit_code" -ne '0' ]]; then
-        printf 'Invalid json\n' 2>&1
+        printf 'Invalid json.\n' 2>&1
         return $exit_code
     fi
 
@@ -170,51 +192,51 @@ EOF
         show_path=''
     fi
 
-    # See if there's a max width to use.
     # A max width of 0 is treated as deactivating the max-width behavior.
-    min_trunc=20
-    path_delim=' = '
-    if command -v 'tput' > /dev/null 2>&1; then
-        max_width="$( tput cols )"
-        if [[ "$max_width" -lt "$min_trunc" ]]; then
-            max_width=0
-        fi
-    else
-        max_width=0
-    fi
-    # If showing the path, make sure none of them are so long that there wouldn't be much room left for a string.
-    # If there is one, don't truncate anything.
-    if [[ "$max_width" -gt '0' && -n "$show_path" ]]; then
-        for path in "${paths[@]}"; do
-            if [[ "$(( max_width - ${#path} - ${#path_delim} ))" -lt "$min_trunc" ]]; then
-                max_width=0
-                break
+    if [[ -z "$max_string" ]]; then
+        #If no max string width was given, try to set it using tput.
+        if command -v 'tput' > /dev/null 2>&1; then
+            max_string="$( tput cols )"
+            if [[ "$max_string" -lt "$min_trunc" ]]; then
+                # If the window is skinnier than the minimum truncation width, skip truncation.
+                max_string=0
+            elif [[ -n "$show_path" ]]; then
+                # If showing the path, make sure none of them are so long that there wouldn't be much room left for a string.
+                # If there is one that's too long, don't auto-truncate anything.
+                for path in "${paths[@]}"; do
+                    if [[ "$(( max_string - ${#path} - ${#path_delim} ))" -lt "$min_trunc" ]]; then
+                        max_string=0
+                        break
+                    fi
+                done
             fi
-        done
+        else
+            max_string=0
+        fi
     fi
 
     # Alright. It's showtime. Loop through each path and get the info for it.
     exit_code=0
     for path in "${paths[@]}"; do
-        jq_max_width="$max_width"
+        jq_max_string="$max_string"
         if [[ -n "$show_path" ]]; then
             printf '%s%s' "$path" "$path_delim"
-            if [[ "$max_width" -gt '0' ]]; then
-                jq_max_width=$(( max_width - ${#path} - ${#path_delim} ))
-                if [[ "$jq_max_width" -lt "$min_trunc" ]]; then
-                    jq_max_width=0
+            if [[ "$max_string" -gt '0' ]]; then
+                jq_max_string=$(( max_string - ${#path} - ${#path_delim} ))
+                if [[ "$jq_max_string" -lt "1" ]]; then
+                    jq_max_string=1
                 fi
             fi
         fi
-        jq_args=( -r --arg max_width_str "$jq_max_width" )
-        printf -v jq_filter '($max_width_str|tonumber) as $max_width |
+        jq_args=( -r --arg max_string_str "$jq_max_string" )
+        printf -v jq_filter '($max_string_str|tonumber) as $max_string |
 def null_info:    "null";
 def boolean_info: "boolean: " + (.|tostring);
 def number_info:  "number: " + (.|tostring);
-def string_info:  "string: " + (.|@json| if $max_width == 0 or (.|length) <= ($max_width - 8) then . else (.[0:$max_width-11] + "...") end );
+def string_info:  "string: " + (.|@json| if $max_string == 0 or (.|length) <= ($max_string - 8) then . elif $max_string <= 11 then "..."  else (.[0:$max_string-11] + "...") end );
 def array_info:   "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": " +
                   ([.[]|type] | reduce .[] as $item ([]; if (.|contains([$item])|not) then . + [$item] else . end) | tostring | gsub("[\\\\]\\\\[\\"]"; "") | gsub(","; " "));
-def object_info:  "object: " + (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys|tostring);
+def object_info:  "object: " + (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys_unsorted|tostring);
 %s | if (.|type) == "null" then (.|null_info)
    elif (.|type) == "boolean" then (.|boolean_info)
    elif (.|type) == "number" then (.|number_info)
@@ -241,7 +263,7 @@ end' "$path"
                 printf '%s\n' "$jq_output"
             fi
         else
-            printf 'Invalid path\n'
+            printf 'Invalid path.\n'
             exit_code=$jq_exit_code
         fi
     done
