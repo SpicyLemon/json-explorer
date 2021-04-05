@@ -64,7 +64,7 @@ EOF
     fi
 
     # Prompt for paths to be selected
-    selections="$( jq -c -r 'path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("\\\\")) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end' "$filename" | fzf --multi --preview="printf '%s\n' {} && json_info -p {} -f '$filename' -d" --preview-window=':40%:wrap' --tac --cycle )"
+    selections="$( json_info --just-paths -r -f "$filename" | fzf --multi --preview="printf '%s\n' {} && json_info -p {} -f '$filename' -d" --preview-window=':40%:wrap' --tac --cycle )"
     result='[]'
     while IFS= read -r jpath; do
         if [[ -n "$jpath" ]]; then
