@@ -162,7 +162,7 @@ EOF
 
     # Figure out the actual paths to use.
     paths=()
-    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" then . + "[" + ($item|tostring) + "]" else . + "." + $item  end ) | if . == "" then ".    " elif .[0:1] != "." then "." + . else . end'
+    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" then . + "[" + ($item|tostring) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end'
     if [[ "${#paths_in[@]}" -eq '0' ]]; then
         # If no paths were provided, either just use '.' or get them all.
         if [[ -z "$recurse" ]]; then
