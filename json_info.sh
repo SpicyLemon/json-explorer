@@ -26,8 +26,8 @@ json_info - Outputs information about a json structure.
 Usage: json_info [-p <path>] [--show-path|--hide-path] {-f <filename>|-|-- <json>}
 
     -p <path> is the optional path to get information about.
-        If provided multiple times, the information for each path will be output.
-        If not provided, '.' is used.
+        If provided multiple times, the information for each path provided will be used.
+        If not provided, all paths are used.
     --show-path is an optional flag that causes the path to be part of the output.
         This is the default when there are more than one paths.
         If supplied with --hide-path, the last one is used.
@@ -92,6 +92,7 @@ EOF
         esac
         shift 2> /dev/null
     done
+    # Make sure only one input method was provided.
     if [[ "$input_count" -eq '0' ]]; then
         printf 'No input\n' >&2
         return 1
@@ -99,6 +100,7 @@ EOF
         printf 'Only one input can be defined.\n' >&2
         return 1
     fi
+    # If it's a file, make sure it exists.
     if [[ -n "$input_file" ]]; then
         if [[ -d "$input_file" ]]; then
             printf 'Input file [%s] is a directory.' "$input_file" >&2
@@ -108,52 +110,74 @@ EOF
             return 1
         fi
     fi
+    # If it's stdin, get it now and then treat it as if provided by --.
     if [[ -n "$input_stdin" ]]; then
         input="$( cat - )"
         input_stdin=''
     fi
-    if [[ "${#paths[@]}" -eq '0' ]]; then
-        paths+=('.')
+
+    local exit_code jq_filter max_width min_trunc path_delim path jq_args jq_max_width jq_output blank_path jq_exit_code
+    # Make sure that the provided json is okay.
+    if [[ -n "$input_file" ]]; then
+        jq '.' "$input_file" > /dev/null
+        exit_code=$?
+    else
+        jq '.' <<< "$input" > /dev/null
+        exit_code=$?
     fi
-    local max_width
+    if [[ "$exit_code" -ne '0' ]]; then
+        printf 'Invalid json\n' 2>&1
+        return $exit_code
+    fi
+
+    #If no paths were provided, get all paths.
+    if [[ "${#paths[@]}" -eq '0' ]]; then
+        jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" then . + "[" + ($item|tostring) + "]" else . + "." + $item  end ) | if . == "" then ".    " elif .[0:1] != "." then "." + . else . end'
+        if [[ -n "$input_file" ]]; then
+            paths+=( $( jq -c -r "$jq_filter" "$input_file" 2> /dev/null ) )
+        elif [[ -n "$input" ]]; then
+            paths+=( $( jq -c -r "$jq_filter" <<< "$input" 2> /dev/null ) )
+        fi
+    fi
+
+    # Handle the default show path behavior and make sure that $show_path is either "yes" or empty.
+    if [[ -z "$show_path" && "${#paths[@]}" -gt '1' ]]; then
+        show_path='yes'
+    elif [[ "$show_path" != 'yes' ]]; then
+        show_path=''
+    fi
+
+    # See if there's a max width to use.
+    # A max width of 0 is treated as deactivating the max-width behavior.
+    min_trunc=20
+    path_delim=' = '
     if command -v 'tput' > /dev/null 2>&1; then
         max_width="$( tput cols )"
-        if [[ "$max_width" -lt '40' ]]; then
+        if [[ "$max_width" -lt "$min_trunc" ]]; then
             max_width=0
         fi
     else
         max_width=0
     fi
-    # Handle the default show path behavior and make sure that $show_path is either "yes" or empty.
-    if [[ -z "$show_path" ]]; then
-        if [[ "${#paths[@]}" -gt '1' ]]; then
-            show_path='yes'
-        fi
-    elif [[ "$show_path" != 'yes' ]]; then
-        show_path=''
-    fi
-    local min_trunc path exit_code jq_args jq_max_width jq_filter jq_output blank_path jq_exit_code
-    # If there's more than one path, make sure none of them are so long that there wouldn't be much room left for a string.
+    # If showing the path, make sure none of them are so long that there wouldn't be much room left for a string.
     # If there is one, don't truncate anything.
-    min_trunc=10
     if [[ "$max_width" -gt '0' && -n "$show_path" ]]; then
         for path in "${paths[@]}"; do
-            # The 3 here comes from the " = " put between the path and its info.
-            if [[ "$(( max_width - ${#path} - 3 ))" -lt "$min_trunc" ]]; then
+            if [[ "$(( max_width - ${#path} - ${#path_delim} ))" -lt "$min_trunc" ]]; then
                 max_width=0
                 break
             fi
         done
     fi
 
+    # Alright. It's showtime. Loop through each path and get the info for it.
     exit_code=0
     for path in "${paths[@]}"; do
         jq_max_width="$max_width"
         if [[ -n "$show_path" ]]; then
-            printf '%s = ' "$path"
+            printf '%s%s' "$path" "$path_delim"
             if [[ "$max_width" -gt '0' ]]; then
-                # The 3 here comes from the " = " put between the path and its info.
-                jq_max_width=$(( max_width - ${#path} - 3 ))
+                jq_max_width=$(( max_width - ${#path} - ${#path_delim} ))
                 if [[ "$jq_max_width" -lt "$min_trunc" ]]; then
                     jq_max_width=0
                 fi
@@ -165,7 +189,8 @@ def null_info:    "null";
 def boolean_info: "boolean: " + (.|tostring);
 def number_info:  "number: " + (.|tostring);
 def string_info:  "string: " + (.|@json| if $max_width == 0 or (.|length) <= ($max_width - 8) then . else (.[0:$max_width-11] + "...") end );
-def array_info:   "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": " + ([.[]|type] | reduce .[] as $item ([]; if (.|contains([$item])|not) then . + [$item] else . end) | tostring | gsub("[\\\\]\\\\[\\"]"; "") | gsub(","; " "));
+def array_info:   "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": " +
+                  ([.[]|type] | reduce .[] as $item ([]; if (.|contains([$item])|not) then . + [$item] else . end) | tostring | gsub("[\\\\]\\\\[\\"]"; "") | gsub(","; " "));
 def object_info:  "object: " + (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys|tostring);
 %s | if (.|type) == "null" then (.|null_info)
    elif (.|type) == "boolean" then (.|boolean_info)
