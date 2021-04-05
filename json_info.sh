@@ -61,6 +61,10 @@ EOF
     paths_in=()
     while [[ "$#" -gt '0' ]]; do
         case "$1" in
+        -h|--help|help)
+            printf '%s\n' "$usage"
+            return 0
+            ;;
         -p|--path)
             if [[ -z "$2" ]]; then
                 printf 'No path provided after %s\n' "$1" >&2
