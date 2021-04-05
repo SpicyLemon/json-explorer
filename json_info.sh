@@ -154,7 +154,7 @@ EOF
         return 1
     fi
 
-    local exit_code jq_filter paths path jq_args jq_max_string jq_output blank_path jq_exit_code line_count
+    local exit_code jq_filter paths path path_count jq_args jq_max_string jq_output blank_path jq_exit_code line_count
     # Make sure that the provided json is okay.
     if [[ -n "$input_file" ]]; then
         jq '.' "$input_file" > /dev/null
@@ -169,32 +169,34 @@ EOF
     fi
 
     # Figure out the actual paths to use.
-    paths=()
-    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" then . + "[" + ($item|tostring) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end'
+    paths=''
+    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("\\\\")) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end'
     if [[ "${#paths_in[@]}" -eq '0' ]]; then
         # If no paths were provided, either just use '.' or get them all.
         if [[ -z "$recurse" ]]; then
-            paths+=( '.' )
+            paths=".\n"
         elif [[ -n "$input_file" ]]; then
-            paths+=( $( jq -c -r "$jq_filter" "$input_file" 2> /dev/null ) )
+            paths="$( jq -r "$jq_filter" "$input_file" 2> /dev/null )"
         elif [[ -n "$input" ]]; then
-            paths+=( $( jq -c -r "$jq_filter" <<< "$input" 2> /dev/null ) )
+            paths="$( jq -r "$jq_filter" <<< "$input" 2> /dev/null )"
         fi
     else
         # One or more paths were provided loop through each and either add it or add it and all sub-paths.
         for path in "${paths_in[@]}"; do
             if [[ -z "$recurse" ]]; then
-                paths+=( "$path" )
+                paths="${paths}$path\n"
             elif [[ -n "$input_file" ]]; then
-                paths+=( $( jq -c -r "$path | $jq_filter" "$input_file" 2> /dev/null | sed "s/^\./$path/" ) )
+                paths="${paths}$( jq -r "$path | $jq_filter" "$input_file" 2> /dev/null | sed "s/^\./$path/" )"
             elif [[ -n "$input" ]]; then
-                paths+=( $( jq -c -r "$path | $jq_filter" <<< "$input" 2> /dev/null | sed "s/^\./$path/" ) )
+                paths="${paths}$( jq -r "$path | $jq_filter" <<< "$input" 2> /dev/null | sed "s/^\./$path/" )"
             fi
         done
     fi
 
+    path_count="$( wc -l <<< "$paths" )"
+
     # Handle the default show path behavior and make sure that $show_path is either "yes" or empty.
-    if [[ -z "$show_path" && "${#paths[@]}" -gt '1' ]]; then
+    if [[ -z "$show_path" && "$path_count" -gt '1' ]]; then
         show_path='yes'
     elif [[ "$show_path" != 'yes' ]]; then
         show_path=''
@@ -211,12 +213,12 @@ EOF
             elif [[ -n "$show_path" ]]; then
                 # If showing the path, make sure none of them are so long that there wouldn't be much room left for a string.
                 # If there is one that's too long, don't auto-truncate anything.
-                for path in "${paths[@]}"; do
+                while IFS= read -r path; do
                     if [[ "$(( max_string - ${#path} - ${#path_delim} ))" -lt "$min_trunc" ]]; then
                         max_string=0
                         break
                     fi
-                done
+                done <<< "$paths"
             fi
         else
             max_string=0
@@ -225,7 +227,7 @@ EOF
 
     # Alright. It's showtime. Loop through each path and get the info for it.
     exit_code=0
-    for path in "${paths[@]}"; do
+    while IFS= read -r path; do
         jq_max_string="$max_string"
         if [[ -n "$show_path" ]]; then
             printf '%s%s' "$path" "$path_delim"
@@ -282,7 +284,7 @@ end' "$path"
             printf 'Invalid path.\n'
             exit_code=$jq_exit_code
         fi
-    done
+    done <<< "$paths"
     return $exit_code
 }
 
