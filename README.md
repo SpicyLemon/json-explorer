@@ -30,6 +30,10 @@ Utilities to help explore complex json structures.
     <li><a href="#prerequisites">Prerequisites</a></li>
     <li><a href="#installation">Installation</a></li>
     <li><a href="#usage">Usage</a></li>
+    <ol>
+      <li><a href="#the-json_explorer-function">The json_explorer function</a></li>
+      <li><a href="#the-json_info-function">The json_info function</a></li>
+    </ol>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
@@ -542,6 +546,6 @@ Project Link: [https://github.com/SpicyLemon/json-explorer](https://github.com/S
 [issues-shield]: https://img.shields.io/github/issues/SpicyLemon/repo.svg?style=for-the-badge
 [issues-url]: https://github.com/SpicyLemon/json-explorer/issues
 [license-shield]: https://img.shields.io/github/license/SpicyLemon/repo.svg?style=for-the-badge
-[license-url]: https://github.com/SpicyLemon/json-explorer/blob/master/LICENSE.txt
+[license-url]: https://github.com/SpicyLemon/json-explorer/blob/master/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/danny-wedul/
