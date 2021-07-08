@@ -34,7 +34,7 @@ Usage: json_info [-p <path>] [-r] [-d] [--show-path|--hide-path|--just-paths] [-
     -r is an optional flag indicating that the paths provided are starting points,
         and that all paths beyond that point should also be used.
         Supplying this once will apply it to all provided paths.
-        Supplying this more than once has no affect.
+        Supplying this more than once has no extra affect.
         If no paths are provided, all paths in the json are used.
 
     -d is an optional flag indicating that for objects and arrays, the pretty json should be in the output.
