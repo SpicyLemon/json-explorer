@@ -80,7 +80,7 @@ See each project for installation instructions.
 1.  Source the installer file.
     From the root of the repo:
     ```sh
-    source je-installer.sh
+    source je-install.sh
     ```
 1.  Optional: Make `json_info` and `json_explorer` available in new terminals.
     There are a couple options for doing this.
@@ -208,7 +208,7 @@ You can filter the displayed list by typing part of the path you're looking for.
 
 Once you find an entry that you want to save for later, highlight it and press the `<tab>` button. A right-caret (aka "greater-than sign") will appear next to the line to indicate that you've selected it. You can select multiple paths this way. Pressing `<tab>` on a selected line will deselect it.
 
-After you've selected your desired lines, press `enter` (or `return`). If no lines are selected, and you press the `enter` (or `return`) key, the highlighted line is selected and submitted. If one ore more lines are selected when pressing `enter` (or `return`), only the selected lines are submitted; the highlighted line isn't automatically also selected. Lines that are selected, but no longer visible are still submitted. Pressing the `esc` key will exit out as if no lines are selected.
+After you've selected your desired lines, press `enter` (or `return`). If no lines are selected, and you press the `enter` (or `return`) key, the highlighted line is selected and submitted. If one or more lines are selected when pressing `enter` (or `return`), only the selected lines are submitted; the highlighted line isn't automatically also selected. Lines that are selected, but no longer visible are still submitted. Pressing the `esc` key will exit out as if no lines are selected.
 
 For each line selected, a json object will be created containing the keys `"path"` and `"value"`. The `"path"` key will contain the path (that was selected). The `"value"` will contain the value at that path in the originally supplied json file.
 
@@ -327,7 +327,7 @@ Get information about all paths in a json file
 ```
 
 #### Demonstrating the `-` json input method and `-r` combined with `-p`.
-Get information about all paths starging with the `"g"` value in a piped in json structure.
+Get information about all paths starting with the `"g"` value in a piped in json structure.
 ```sh
 > cat tests/object-complex-1.json | json_info -r -p '.g' -
 ```
