@@ -180,7 +180,7 @@ EOF
     # In order to handle paths that have spaces or other weird stuff, I'm putting them all in a string first instead of an array.
     # Later each line will be read out and put back into an array.
     paths_str=''
-    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("\\\\")) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end'
+    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("^\"[a-zA-Z_][a-zA-Z0-9_]*\"$")|not) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end'
     if [[ "${#paths_in[@]}" -eq '0' ]]; then
         # If no paths were provided, either just use '.' or get them all.
         if [[ -z "$recurse" ]]; then
