@@ -1,0 +1,22 @@
+{
+  "mainthing": {
+    "/foo/{foo}/bar/{bar}": {
+      "barkey1": "barvalue1",
+      "barkey2": "barvalue2"
+    },
+    "/foo/{foo}/baz/{baz}": {
+      "bazkey1": "bazvalue1",
+      "bazkey2": "bazvalue2"
+    }
+  },
+  "1otherthing": "starts with number",
+  "five4three": "number in the middle",
+  " lots of space ": "starts with and has spaces",
+  "a space": "has a single space in the middle",
+  "_": "Just an underscore",
+  "_thingThree": "starts with underscore",
+  "another_thing": "underscore in the middle",
+  "a \"double quoted\" string": "a string with double quote characters",
+  "a 'single quoted' string": "a string with single quote characters",
+  "normal": "just a normal thing"
+}
