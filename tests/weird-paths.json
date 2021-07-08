@@ -18,5 +18,6 @@
   "another_thing": "underscore in the middle",
   "a \"double quoted\" string": "a string with double quote characters",
   "a 'single quoted' string": "a string with single quote characters",
+  "85": "only a number",
   "normal": "just a normal thing"
 }
