@@ -34,7 +34,7 @@ Usage: json_info [-p <path>] [-r] [-d] [--show-path|--hide-path|--just-paths] [-
     -r is an optional flag indicating that the paths provided are starting points,
         and that all paths beyond that point should also be used.
         Supplying this once will apply it to all provided paths.
-        Supplying this more than once has no affect.
+        Supplying this more than once has no extra affect.
         If no paths are provided, all paths in the json are used.
 
     -d is an optional flag indicating that for objects and arrays, the pretty json should be in the output.
@@ -180,7 +180,7 @@ EOF
     # In order to handle paths that have spaces or other weird stuff, I'm putting them all in a string first instead of an array.
     # Later each line will be read out and put back into an array.
     paths_str=''
-    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("\\\\")) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end'
+    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("^\"[a-zA-Z_][a-zA-Z0-9_]*\"$")|not) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end'
     if [[ "${#paths_in[@]}" -eq '0' ]]; then
         # If no paths were provided, either just use '.' or get them all.
         if [[ -z "$recurse" ]]; then
