@@ -45,7 +45,8 @@ je_install_exit_code=0
 je_install_source_command_file 'json_info' || je_install_exit_code=$?
 je_install_source_command_file 'json_explorer' || je_install_exit_code=$?
 
-unset -f je_install_where_i_am
+unset je_install_where_i_am
 unset -f je_install_source_command_file
 
-return $je_install_exit_code
+# Trick: String expansion creates the proper return command, then eval unsets the je_install_exit_code variable before returning as desired.
+eval "unset je_install_exit_code; return $je_install_exit_code"
