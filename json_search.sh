@@ -203,7 +203,7 @@ EOF
     # Define a jq function to turn a paths array into a path string. The jq invocation must also have a --arg base "<path>" argument provided.
     jq_filter_to_path_func='def to_path: reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("^\"[a-zA-Z_][a-zA-Z0-9_]*\"$")|not) then . + "[" + ($item|@json) + "]" else . + "." + $item end ) | if . == "" then $base elif $base == "." and .[0:1] == "." then . else $base + . end;'
     # Define the search part of the filter. The jq invocation must also have a --arg query "<query>" argument provided.
-    printf -v jq_filter_search '. as $dot | path(..| select(scalars and (tostring|test($query;"%s"))) )' "$flags"
+    printf -v jq_filter_search '. as $dot | path(..| select((scalars or . == null) and (tostring|test($query;"%s"))) )' "$flags"
     # Define the output manipulation part of the filter. Input at this point will be an array of scalars from the paths function.
     # This assumes that $dot was previously set in the filter.
     # The jq invocation should also have a --arg delim "<delim>" argument provided.
@@ -229,7 +229,6 @@ EOF
             jq_output="$( jq "${jq_args[@]}" "$input_file" 2> /dev/null )"
             jq_exit_code=$?
         elif [[ -n "$input" ]]; then
-            printf '\033[1mjq %s <<< %s\033[0m\n' "${jq_args[*]}" "$input"
             jq_output="$( jq "${jq_args[@]}" <<< "$input" 2> /dev/null )"
             jq_exit_code=$?
         fi
