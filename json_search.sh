@@ -23,14 +23,13 @@ json_search () {
     usage="$( cat << EOF
 json_search - Searches json and returns paths and/or values for values that match.
 
-Usage: json_search {[-q|--query] <query>} [--flags <flags>] {-f <filename>|-|-- <json>}
+Usage: json_search {-q <query>|--query <query>} [--flags <flags>] {-f <filename>|-|-- <json>}
                    [-p <path>] [--show-values|--hide-values|--just-values] [-d <delim>|--delimiter <delim>]
 
-    <query> or -q <query> or --query <query> is search to perform.
-        It is provided to jq as the val in a test(val) test.
+    -q <query> or --query <query> is search to perform.
+        It is provided to jq as the val in a test(regex; flags) test.
         Each value is compared as a string. So a <query> of "true" will match strings that have "true"
             in it as well as boolean values that are set to true.
-        If the query starts with a dash, then either -q <query> or --query <query> must be used.
         If provided multiple times, only the last one will be used.
 
     --flags <flags> is an optional argument that lets you define the flags to use in the jq regex test.
@@ -138,12 +137,9 @@ EOF
             set --
             input_count=$(( input_count + 1 ))
             ;;
-        -*)
+        *)
             printf 'Unknown argument: %s\n' "$1" >&2
             return 1
-            ;;
-        *)
-            query="$1"
             ;;
         esac
         shift 2> /dev/null
