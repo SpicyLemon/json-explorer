@@ -21,7 +21,7 @@ json_search () {
     fi
     local usage
     usage="$( cat << EOF
-json_search - Searches json and returns paths and/or values for values that match.
+json_search - Searches json and returns paths and/or values for values that match a query.
 
 Usage: json_search {-q <query>|--query <query>} [--flags <flags>] {-f <filename>|-|-- <json>}
                    [-p <path>] [--show-values|--hide-values|--just-values] [-d <delim>|--delimiter <delim>]
@@ -178,6 +178,8 @@ EOF
         input="$( cat - )"
         input_stdin=''
     fi
+
+    # If no paths were provided, use .
     if [[ "${#paths_in[@]}" -eq '0' ]]; then
         paths_in=( '.' )
     fi
