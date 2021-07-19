@@ -91,6 +91,15 @@ EOF
             query="$2"
             shift
             ;;
+        --flag|--flags)
+            # We want to allow "" to be provided here.
+            if [[ "$#" -eq '1' ]]; then
+                printf 'No flags provided after %s\n' "$1" >&2
+                return 1
+            fi
+            flags="$2"
+            shift
+            ;;
         -f|--file)
             if [[ -z "$2" ]]; then
                 printf 'No input file provided after %s\n' "$1" >&2
@@ -124,10 +133,17 @@ EOF
         esac
         shift 2> /dev/null
     done
+    # Make sure we have a query.
     if [[ -z "$query" ]]; then
         printf 'No query.\n' >&2
         return 1
     fi
+    # Make sure the flags are alright.
+    if [[ ! "$flags" =~ ^[gimnpslx]*$ ]]; then
+        printf 'Illegal flag(s): %s\n' "$( sed 's/[gimnpslx]//g' <<< "$flags" )" >&2
+        return 1
+    fi
+
     # Make sure only one input method was provided.
     if [[ "$input_count" -eq '0' ]]; then
         printf 'No input.\n' >&2
@@ -172,7 +188,7 @@ EOF
     # Define a jq function to turn a paths array into a path string. The jq invocation must also have a --arg base "<path>" argument provided.
     jq_filter_to_path_func='def to_path: reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("^\"[a-zA-Z_][a-zA-Z0-9_]*\"$")|not) then . + "[" + ($item|@json) + "]" else . + "." + $item end ) | if . == "" then $base elif $base == "." and .[0:1] == "." then . else $base + . end;'
     # Define the search part of the filter. The jq invocation must also have a --arg query "<query>" argument provided.
-    jq_filter_search='. as $dot | path(..| select(scalars and (tostring|test($query))) )'
+    printf -v jq_filter_search '. as $dot | path(..| select(scalars and (tostring|test($query;"%s"))) )' "$flags"
     # Define the output manipulation part of the filter. Input at this point will be an array of scalars from the paths function.
     # This assumes that $dot was previously set in the filter.
     if [[ -z "$show_values" ]]; then
@@ -197,6 +213,7 @@ EOF
             jq_output="$( jq "${jq_args[@]}" "$input_file" 2> /dev/null )"
             jq_exit_code=$?
         elif [[ -n "$input" ]]; then
+            printf '\033[1mjq %s <<< %s\033[0m\n' "${jq_args[*]}" "$input"
             jq_output="$( jq "${jq_args[@]}" <<< "$input" 2> /dev/null )"
             jq_exit_code=$?
         fi
