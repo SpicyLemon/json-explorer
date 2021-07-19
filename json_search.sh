@@ -21,20 +21,10 @@ json_search () {
     fi
     local usage
     usage="$( cat << EOF
-json_search - Searches json and returns paths that match.
+json_search - Searches json and returns paths and/or values for values that match.
 
-Usage: json_search [-p <path>] [--show-values|--hide-values|--just-values] {[-q|--query] <query>} [--flags <flags>] {-f <filename>|-|-- <json>}
-
-    -p <path> is the optional base path to start the search from.
-        If provided multiple times, each path will be searched.
-        If not provided, "." is used.
-
-    --show-values is an optional flag that causes the value of each path to be part of the output.
-    --hide-values is an optional flag that causes the value of each path to NOT be part of the output.
-        This is the default behavior.
-    --just-values is an optional flag that causes output to be just the values found (without the paths).
-
-    If multiple arguments are --show-values, --hide-values or --just-values, only the last one will be used.
+Usage: json_search {[-q|--query] <query>} [--flags <flags>] {-f <filename>|-|-- <json>}
+                   [-p <path>] [--show-values|--hide-values|--just-values] [-d <delim>|--delimiter <delim>]
 
     <query> or -q <query> or --query <query> is search to perform.
         It is provided to jq as the val in a test(val) test.
@@ -53,13 +43,30 @@ Usage: json_search [-p <path>] [--show-values|--hide-values|--just-values] {[-q|
         -- <json> allows the json to be provided as part of the command.
             Everything after -- is treated as part of the json.
 
+    -p <path> is the optional base path to start the search from.
+        If provided multiple times, each provided path will be searched.
+        If not provided, "." is used.
+
+    --show-values is an optional flag that causes the value of each path to be part of the output.
+        This is the default behavior.
+    --hide-values is an optional flag that causes the value of each path to NOT be part of the output.
+    --just-values is an optional flag that causes output to be just the values found (without the paths).
+
+    If multiple arguments are --show-values, --hide-values or --just-values, only the last one will be used.
+
+    -d <delim> or --delimiter <delim> defines the delimiter to use between each path and value.
+        It is only applicable with --show-values (or default behavior) and will be ignored for --hide-values or --just-values.
+        The default is ": ".
+
     See https://stedolan.github.io/jq/manual/#RegularexpressionsPCRE for jq regex and flag details.
 
 EOF
 )"
-    local input_count paths_in input_file input_stdin input show_values query flags
+    local input_count paths_in input_file input_stdin input show_values delim query flags
     input_count=0
     paths_in=()
+    show_values='yes'
+    delim=': '
     while [[ "$#" -gt '0' ]]; do
         case "$1" in
         -h|--help|help)
@@ -82,6 +89,14 @@ EOF
             ;;
         --just-value|--just-values)
             show_values='only'
+            ;;
+        -d|--delim|--delimiter)
+            if [[ -z "$2" ]]; then
+                printf 'No delimiter provided after %s\n' "$1" >&2
+                return 1
+            fi
+            delim="$2"
+            shift
             ;;
         -q|--query)
             if [[ -z "$2" ]]; then
@@ -191,10 +206,11 @@ EOF
     printf -v jq_filter_search '. as $dot | path(..| select(scalars and (tostring|test($query;"%s"))) )' "$flags"
     # Define the output manipulation part of the filter. Input at this point will be an array of scalars from the paths function.
     # This assumes that $dot was previously set in the filter.
+    # The jq invocation should also have a --arg delim "<delim>" argument provided.
     if [[ -z "$show_values" ]]; then
         jq_filter_output='to_path'
     elif [[ "$show_values" == 'yes' ]]; then
-        jq_filter_output='. as $p | ($p|to_path) + ": " + ($dot|getpath($p)|@json)'
+        jq_filter_output='. as $p | ($p|to_path) + $delim + ($dot|getpath($p)|@json)'
     elif [[ "$show_values" == 'only' ]]; then
         jq_filter_output='. as $p | ($dot|getpath($p)|@json)'
     else
@@ -207,7 +223,7 @@ EOF
     invalid_paths=()
     for jpath in "${paths_in[@]}"; do
         printf -v jq_filter '%s %s | %s | %s' "$jq_filter_to_path_func" "$jpath" "$jq_filter_search" "$jq_filter_output"
-        jq_args=( -r --arg base "$jpath" --arg query "$query" "$jq_filter" )
+        jq_args=( -r --arg base "$jpath" --arg query "$query" --arg delim "$delim" "$jq_filter" )
         jq_output=''
         if [[ -n "$input_file" ]]; then
             jq_output="$( jq "${jq_args[@]}" "$input_file" 2> /dev/null )"
