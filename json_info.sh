@@ -201,7 +201,7 @@ EOF
         done
     fi
 
-    check_str_len='false'
+    check_str_len=''
     # A max width of 0 is treated as deactivating the max-width behavior.
     if [[ -z "$max_string" ]]; then
         # If no max string width was given, look for a FZF_PREVIEW_COLUMNS value.
@@ -215,7 +215,7 @@ EOF
                 # If the window is skinnier than the minimum truncation width, skip truncation.
                 max_string=0
             elif [[ -n "$show_path" ]]; then
-                check_str_len='true'
+                check_str_len='yes'
             fi
         else
             max_string=0
@@ -223,7 +223,7 @@ EOF
     fi
 
     jq_args=( --arg recurse "$recurse" --arg show_path "$show_path" --arg show_data "$show_data" --arg path_delim "$path_delim" )
-    jq_args+=( --argjson check_str_len "$check_str_len" --argjson max_string "$max_string" --argjson min_trunc "$min_trunc" )
+    jq_args+=( --arg check_str_len "$check_str_len" --argjson max_string "$max_string" --argjson min_trunc "$min_trunc" )
     if [[ -n "$input_file" ]]; then
         jq_args+=( --slurpfile data "$input_file" )
     elif [[ -n "$input" ]]; then
