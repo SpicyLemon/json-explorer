@@ -1,5 +1,5 @@
 #!/bin/bash
-# This file contains installs the json_info, json_search and json_explorer functions in your environment.
+# This file installs the json_info, json_search and json_explorer functions in your environment.
 # This file is meant to be sourced (e.g. in your .bash_profile).
 #
 
