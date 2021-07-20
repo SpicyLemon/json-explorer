@@ -162,7 +162,7 @@ EOF
         return 1
     fi
 
-    local exit_code jq_filter paths jpath esc_path paths_str jq_args jq_max_string jq_output blank_path jq_exit_code line_count
+    local exit_code jq_func_from_path paths_arrays jpath jq_exit_code check_str_len jq_args jq_filter
     # Make sure that the provided json is okay.
     if [[ -n "$input_file" ]]; then
         jq '.' "$input_file" > /dev/null
@@ -176,50 +176,32 @@ EOF
         return $exit_code
     fi
 
-    # Figure out the actual paths to use.
-    # In order to handle paths that have spaces or other weird stuff, I'm putting them all in a string first instead of an array.
-    # Later each line will be read out and put back into an array.
-    paths_str=''
-    jq_filter='path(..)|reduce .[] as $item (""; if ($item|type) == "number" or ($item|@json|test("^\"[a-zA-Z_][a-zA-Z0-9_]*\"$")|not) then . + "[" + ($item|@json) + "]" else . + "." + $item  end ) | if . == "" then "." elif .[0:1] != "." then "." + . else . end'
+    # Define a jq function to go from a path string to a paths array.
+    jq_func_from_path='def from_path: sub("^\\.$";"[]") | gsub("\\.(?<k>[a-zA-Z_][a-zA-Z0-9_]*)";"[\"\(.k)\"]") | sub("^\\.";"") | gsub("]\\[";",") | fromjson;'
+
+    #Use jq to check all provided paths, convert them to paths arrays and combine them all into a json array.
     if [[ "${#paths_in[@]}" -eq '0' ]]; then
-        # If no paths were provided, either just use '.' or get them all.
-        if [[ -z "$recurse" ]]; then
-            printf -v paths_str '.\n'
-        elif [[ -n "$input_file" ]]; then
-            paths_str="$( jq -r "$jq_filter" "$input_file" 2> /dev/null )"
-        elif [[ -n "$input" ]]; then
-            paths_str="$( jq -r "$jq_filter" <<< "$input" 2> /dev/null )"
-        fi
+        # No paths provided. [] is the array form of .
+        paths_arrays='[[]]'
     else
-        # One or more paths were provided loop through each and either add it or add it and all sub-paths.
+        paths_arrays='[]'
         for jpath in "${paths_in[@]}"; do
-            if [[ -z "$recurse" ]]; then
-                printf -v paths_str '%b%b\n' "$paths_str" "$jpath"
-            elif [[ -n "$input_file" ]]; then
-                esc_path="$( sed 's/[\/&]/\\&/g' <<< "$jpath" )"
-                printf -v paths_str '%b%b\n' "$paths_str" "$( jq -r "$jpath | $jq_filter" "$input_file" 2> /dev/null | sed "s/^\./$esc_path/" )"
+            printf -v jq_filter '%s %s | [$base | from_path] | $paths_arrays + .' "$jq_func_from_path" "$jpath"
+            if [[ -n "$input_file" ]]; then
+                paths_arrays="$( jq -c --arg base "$jpath" --argjson paths_arrays "$paths_arrays" "$jq_filter" "$input_file" )"
+                jq_exit_code=$?
             elif [[ -n "$input" ]]; then
-                esc_path="$( sed 's/[\/&]/\\&/g' <<< "$jpath" )"
-                printf -v paths_str '%b%b\n' "$paths_str" "$( jq -r "$jpath | $jq_filter" <<< "$input" 2> /dev/null | sed "s/^\./$esc_path/" )"
+                paths_arrays="$( jq -c --arg base "$jpath" --argjson paths_arrays "$paths_arrays" "$jq_filter" <<< "$input" )"
+                jq_exit_code=$?
+            fi
+            if [[ "$jq_exit_code" -ne '0' ]]; then
+                printf 'Invalid path: %s\n' "$jpath" >&2
+                return $jq_exit_code
             fi
         done
     fi
 
-    # Convert each path line into an array entry.
-    paths=()
-    while IFS= read -r jpath; do
-        if [[ -n "$jpath" ]]; then
-            paths+=( "$jpath" )
-        fi
-    done <<< "$paths_str"
-
-    # Handle the default show path behavior and make sure that $show_path is either "yes", "only" or empty.
-    if [[ -z "$show_path" && "${#paths[@]}" -gt '1' ]]; then
-        show_path='yes'
-    elif [[ "$show_path" != 'yes' && "$show_path" != 'only' ]]; then
-        show_path=''
-    fi
-
+    check_str_len='false'
     # A max width of 0 is treated as deactivating the max-width behavior.
     if [[ -z "$max_string" ]]; then
         # If no max string width was given, look for a FZF_PREVIEW_COLUMNS value.
@@ -233,85 +215,71 @@ EOF
                 # If the window is skinnier than the minimum truncation width, skip truncation.
                 max_string=0
             elif [[ -n "$show_path" ]]; then
-                # If showing the path, make sure none of them are so long that there wouldn't be much room left for a string.
-                # If there is one that's too long, don't auto-truncate anything.
-                for jpath in "${paths[@]}"; do
-                    if [[ "$(( max_string - ${#jpath} - ${#path_delim} ))" -lt "$min_trunc" ]]; then
-                        max_string=0
-                        break
-                    fi
-                done
+                check_str_len='true'
             fi
         else
             max_string=0
         fi
     fi
 
-    # Alright. It's showtime. Loop through each path and get the info for it.
-    exit_code=0
-    for jpath in "${paths[@]}"; do
-        if [[ "$show_path" == 'only' ]]; then
-            printf '%s\n' "$jpath"
-            continue
-        fi
-        jq_max_string="$max_string"
-        if [[ -n "$show_path" ]]; then
-            printf '%s%s' "$jpath" "$path_delim"
-            if [[ "$max_string" -gt '0' ]]; then
-                jq_max_string=$(( max_string - ${#jpath} - ${#path_delim} ))
-                if [[ "$jq_max_string" -lt "1" ]]; then
-                    jq_max_string=1
-                fi
-            fi
-        fi
-        jq_args=( -r --arg max_string_str "$jq_max_string" )
-        printf -v jq_filter '($max_string_str|tonumber) as $max_string |
-def null_info:    "null";
+    jq_args=( --arg recurse "$recurse" --arg show_path "$show_path" --arg show_data "$show_data" --arg path_delim "$path_delim" )
+    jq_args+=( --argjson check_str_len "$check_str_len" --argjson max_string "$max_string" --argjson min_trunc "$min_trunc" )
+    if [[ -n "$input_file" ]]; then
+        jq_args+=( --slurpfile data "$input_file" )
+    elif [[ -n "$input" ]]; then
+        jq_args+=( --argjson data "[$input]" )
+    fi
+
+    jq_filter='def null_info:    "null";
 def boolean_info: "boolean: " + (.|tostring);
 def number_info:  "number: " + (.|tostring);
-def string_info:  "string: " + (.|@json| if $max_string == 0 or (.|length) <= ($max_string - 8) then . elif $max_string <= 11 then "..."  else (.[0:$max_string-11] + "...") end );
+def string_info($max_info_string):  "string: " + (.|@json| if $max_info_string == 0 or (.|length) <= ($max_info_string - 8) then . elif $max_info_string <= 11 then "..."  else (.[0:$max_info_string-11] + "...") end );
 def array_info:   "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": " +
-                  ([.[]|type] | reduce .[] as $item ([]; if (.|contains([$item])|not) then . + [$item] else . end) | tostring | gsub("[\\\\]\\\\[\\"]"; "") | gsub(","; " "));
+                  ([.[]|type] | reduce .[] as $item ([]; if (.|contains([$item])|not) then . + [$item] else . end) | tostring | gsub("[\\]\\[\"]"; "") | gsub(","; " "));
 def object_info:  "object: " + (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys_unsorted|tostring);
-%s | if (.|type) == "null" then (.|null_info)
+def get_info($max_info_string_len): if (.|type) == "null" then (.|null_info)
    elif (.|type) == "boolean" then (.|boolean_info)
    elif (.|type) == "number" then (.|number_info)
-   elif (.|type) == "string" then (.|string_info)
+   elif (.|type) == "string" then (.|string_info($max_info_string_len))
    elif (.|type) == "array" then (.|array_info)
    elif (.|type) == "object" then (.|object_info)
-   else ""
-end' "$jpath"
-        if [[ -n "$input_file" ]]; then
-            jq_output="$( jq ${jq_args[@]} "$jq_filter" "$input_file" 2> /dev/null )"
-            jq_exit_code=$?
-        elif [[ -n "$input" ]]; then
-            jq_output="$( jq ${jq_args[@]} "$jq_filter" <<< "$input" 2> /dev/null )"
-            jq_exit_code=$?
-        fi
-        if [[ "$jq_exit_code" -eq '0' ]]; then
-            line_count="$( wc -l <<< "$jq_output" )"
-            if [[ -n "$show_path" && "$line_count" -gt '1' ]]; then
-                blank_path="$( sed 's/./ /g' <<< "$jpath" )   "
-                # The path has already been printed, just print the first line
-                head -n 1 <<< "$jq_output"
-                # Now print the rest of the lines with the blank path appended.
-                tail -n +2 <<< "$jq_output" | sed "s/^/$blank_path/"
-            else
-                printf '%s\n' "$jq_output"
-            fi
-            if [[ -n "$show_data" && "$line_count" -eq '1' && "$jq_output" =~ ^(object|array) ]]; then
-                if [[ -n "$input_file" ]]; then
-                    jq "$jpath" "$input_file" 2> /dev/null
-                elif [[ -n "$input" ]]; then
-                    jq "$jpath" <<< "$input" 2> /dev/null
-                fi
-            fi
-        else
-            printf 'Invalid path.\n'
-            exit_code=$jq_exit_code
-        fi
-    done
-    return $exit_code
+   else "unknown type"
+end;
+def to_path: reduce .[] as $item ("";
+    if ($item|type) == "number" or ($item|@json|test("^\"[a-zA-Z_][a-zA-Z0-9_]*\"$")|not) then
+        . + "[" + ($item|@json) + "]"
+    else
+        . + "." + $item
+    end
+) | if . == "" then "." elif .[0:1] != "." then "." + . else . end;
+
+$data[0] as $data |
+if $recurse == "yes" then [.[]|. as $base|$data|getpath($base)|path(..)|$base+.] else . end |
+(if $show_path == "" and (.|length) > 1 then "yes" else $show_path end) as $show_path |
+[.[]|{arr:.}] |
+if $show_path == "yes" or $show_path == "only" then [.[]|.str=(.arr|to_path)] else . end |
+(if $check_str_len == "yes" and ($max_string - ([.[]|.str|length]|max) - ($path_delim|length)) < $min_trunc then 0 else $max_string end) as $max_string |
+
+.[] | . as $path |
+if $show_data == "yes" or $show_path != "only" then .data=($data|getpath($path.arr)) else . end |
+if $show_path == "yes" then
+    .info=(.data|get_info($max_string - ($path_delim|length) - ($path.str|length)))
+elif $show_path != "only" then
+    .info=(.data|get_info($max_string))
+else . end |
+.output = [] |
+
+if $show_path == "only" then
+    .output += [.str]
+elif $show_path == "yes" then
+    .output += [.str + $path_delim + .info]
+else
+    .output += [.info]
+end |
+if $show_data == "yes" and ((.data|type) == "array" or (.data|type) == "object") then .output += [.data] else . end |
+.output[]'
+
+    jq -r "${jq_args[@]}" "$jq_filter" <<< "$paths_arrays"
 }
 
 if [[ "$sourced" != 'YES' ]]; then
