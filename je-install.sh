@@ -1,5 +1,5 @@
 #!/bin/bash
-# This file contains installs the json_info and json_explorer functions in your environment.
+# This file installs the json_info, json_search and json_explorer functions in your environment.
 # This file is meant to be sourced (e.g. in your .bash_profile).
 #
 
@@ -40,9 +40,10 @@ je_install_source_command_file () {
     fi
     return 0
 }
-je_install_exit_code=0
 
+je_install_exit_code=0
 je_install_source_command_file 'json_info' || je_install_exit_code=$?
+je_install_source_command_file 'json_search' || je_install_exit_code=$?
 je_install_source_command_file 'json_explorer' || je_install_exit_code=$?
 
 unset je_install_where_i_am
