@@ -33,6 +33,7 @@ Utilities to help explore complex json structures.
     <ol>
       <li><a href="#the-json_explorer-function">The json_explorer function</a></li>
       <li><a href="#the-json_info-function">The json_info function</a></li>
+      <li><a href="#the-json_search-function">The json_search function</a></li>
     </ol>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
@@ -45,7 +46,7 @@ Utilities to help explore complex json structures.
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-There are two main functions in here.
+There are three main functions in here.
 1.  The `json_explorer` function allows selection of paths of a json structure along with preview information paths.
     Selected paths are then retrieved and printed via stdout.
 
@@ -57,6 +58,9 @@ There are two main functions in here.
 1.  The `json_info` function provides information about various paths in a json structure.
 
     ![json_info output screenshot](/images/json-info-output.png?raw=true)
+1.  The `json_search` function provides a way to find paths with values that match a query.
+
+    ![json_search output screenshot](/images/json-search-output.png?raw=true)
 
 
 
@@ -82,7 +86,7 @@ See each project for installation instructions.
     ```sh
     source je-install.sh
     ```
-1.  Optional: Make `json_info` and `json_explorer` available in new terminals.
+1.  Optional: Make `json_info`, `json_search`, and `json_explorer` available in new terminals.
     There are a couple options for doing this.
     * Add the source command to your shell initialization script e.g. `.bash_profile` or `.zshrc`
         * Assuming you have navigated to the root of the repo.
@@ -90,16 +94,19 @@ See each project for installation instructions.
         ```sh
         printf 'source "%s/je-install.sh"\n' "$( pwd )" >> ~/.bash_profile
         ```
-    * Copy the `json_info.sh` and `json_explorer.sh` files into your own location and source them individually in your shell initialization script e.g. ` .bash_profile` or `.zshrc`.
+    * Copy the `json_info.sh`, `json_search.sh`, and `json_explorer.sh` files into your own location and source them individually in your shell initialization script e.g. ` .bash_profile` or `.zshrc`.
         ```sh
         cp json_info.sh ~
+        cp json_search.sh ~
         cp json_explorer.sh ~
         printf 'source "$HOME/json_info.sh"\n' >> ~/.bash_profile
+        printf 'source "$HOME/json_search.sh"\n' >> ~/.bash_profile
         printf 'source "$HOME/json_explorer.sh"\n' >> ~/.bash_profile
         ```
-    * Copy the `json_info.sh` and `json_explorer.sh` into a directory in your execution path variable e.g. `PATH` or `path`.
+    * Copy the `json_info.sh`, `json_search.sh`, and `json_explorer.sh` into a directory in your execution path variable e.g. `PATH` or `path`.
         ```sh
         cp json_info.sh /usr/local/bin/json_info
+        cp json_search.sh /usr/local/bin/json_search
         cp json_explorer.sh /usr/local/bin/json_explorer
         ```
 
@@ -110,7 +117,7 @@ See each project for installation instructions.
 
 These examples all assume you are in the root of this repository.
 
-The `json_explorer` function is defined in the file `json_explorer.sh`, and the `json_info` function is defined in the file `json_info.sh`. These examples assume that you have sourced the files (or `je-install.sh`) to add the functions to your environment. The files can instead be executed directly if desired. To execute the file directly, replace "`json_explorer`" with "`./json_explorer.sh`" or replace "`json_info`" with "`./json_info.sh`" in these examples.
+The `json_explorer` function is defined in the file `json_explorer.sh`, the `json_search` function in the file `json_search.sh`, and the `json_info` function in the file `json_info.sh`. These examples assume that you have sourced the files (or `je-install.sh`) to add the functions to your environment. The files can instead be executed directly if desired. To execute the file directly, replace "`json_explorer`" with "`./json_explorer.sh`", replace "`json_search`" with "`./json_search.sh`", or replace "`json_info`" with "`./json_info.sh`" in these examples.
 
 ### The `json_explorer` function
 
@@ -531,6 +538,138 @@ vs
 array: 6 entries: object array string number boolean null
 ```
 
+### The `json_search` function
+
+This function uses `jq` to search json for values matching a query, and output the paths and/or values.
+
+#### Usage
+```sh
+> json_search --help
+```
+```
+json_search - Searches json and returns paths and/or values for values that match a query.
+
+Usage: json_search {-q <query>|--query <query>} [--flags <flags>] {-f <filename>|-|-- <json>}
+                   [-p <path>] [--show-values|--hide-values|--just-values] [-d <delim>|--delimiter <delim>]
+
+    -q <query> or --query <query> is search to perform.
+        It is provided to jq as the val in a test(regex; flags) test.
+        Each value is compared as a string. So a <query> of "true" will match strings that have "true"
+            in it as well as boolean values that are set to true.
+        If provided multiple times, only the last one will be used.
+
+    --flags <flags> is an optional argument that lets you define the flags to use in the jq regex test.
+        If supplied multiple times, only the last one will be used.
+        If not supplied, no flags are used.
+
+    Exactly one of the following must be provided to define the input json.
+        -f <filename> will load the json from the provided filename
+        - indicates that the json should be collected from stdin.
+        -- <json> allows the json to be provided as part of the command.
+            Everything after -- is treated as part of the json.
+
+    -p <path> is the optional base path to start the search from.
+        If provided multiple times, each provided path will be searched.
+        If not provided, "." is used.
+
+    --show-values is an optional flag that causes the value of each path to be part of the output.
+        This is the default behavior.
+    --hide-values is an optional flag that causes the value of each path to NOT be part of the output.
+    --just-values is an optional flag that causes output to be just the values found (without the paths).
+
+    If multiple arguments are --show-values, --hide-values or --just-values, only the last one will be used.
+
+    -d <delim> or --delimiter <delim> defines the delimiter to use between each path and value.
+        It is only applicable with --show-values (or default behavior) and will be ignored for --hide-values or --just-values.
+        The default is ": ".
+
+    See https://stedolan.github.io/jq/manual/#RegularexpressionsPCRE for jq regex and flag details.
+```
+
+#### Basic Example
+
+Find all null values.
+
+```sh
+> json_search -q '^null$' -f tests/array-of-nulls-and-booleans.json
+```
+```
+.[0]: null
+.[4]: null
+```
+
+Note: That query will also return entries that are the string `"null"`.
+
+#### Demonstrating the --delimiter option
+
+Find values that start with "ba" and end with "2" and display them as key=value.
+
+```sh
+> json_search -q '^ba.*2$' -f tests/weird-paths.json --show-values --delimiter '='
+```
+```
+.mainthing["/foo/{foo}/bar/{bar}"].barkey2="barvalue2"
+.mainthing["/foo/{foo}/baz/{baz}"].bazkey2="bazvalue2"
+```
+
+#### Demonstrating the --hide-values flag
+
+Get all the paths of values containing the word "thing".
+
+```sh
+> json_search -q 'thing' -f tests/object-complex-2.json --hide-values
+```
+```
+.d
+.e
+```
+
+#### Demonstrating the --just-values flag
+
+Get all the values containing the word "thing".
+
+```sh
+> json_search -q 'thing' -f tests/object-complex-1.json --just-values
+```
+```
+"\"complex thing\""
+"thing"
+```
+
+#### Demonstrating the --path option
+
+Get all values containing the letter o, but only under the ".g" path.
+
+```sh
+> json_search --path '.g' -q 'o' -f tests/object-complex-1.json
+```
+```
+.g[0]: "four"
+```
+
+Get all the values containing the letter o, but this time search in both .f and .g.
+
+```sh
+> json_search --path '.g' -q 'o' -f tests/object-complex-1.json -p '.f'
+```
+```
+.f[0]: "one"
+.f[1]: "two"
+.g[0]: "four"
+```
+
+#### Demonstrating the --flags option
+
+Do a case-insensitive search for the word "case".
+
+```sh
+> json_search -q case --flags 'i' -f tests/array-of-strings-with-cases.json
+```
+```
+.[0]: "UPPER CASE"
+.[1]: "lower case"
+.[3]: "camelCase"
+```
 
 <!-- CONTRIBUTING -->
 ## Contributing
