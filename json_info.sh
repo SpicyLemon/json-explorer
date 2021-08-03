@@ -162,7 +162,7 @@ EOF
         return 1
     fi
 
-    local exit_code jq_func_from_path paths_arrays jpath jq_exit_code check_str_len jq_args jq_filter
+    local exit_code jq_func_from_path paths_arrays jpath jq_exit_code check_str_len prev_lines jq_args jq_filter
     # Make sure that the provided json is okay.
     if [[ -n "$input_file" ]]; then
         jq '.' "$input_file" > /dev/null
@@ -205,10 +205,14 @@ EOF
     # A max width of 0 is treated as deactivating the max-width behavior.
     if [[ -z "$max_string" ]]; then
         # If no max string width was given, look for a FZF_PREVIEW_COLUMNS value.
-        # If we have one, limit the string to 5 lines in the preview window.
+        # If we have one, limit the string to FZF_PREVIEW_LINES - 1 lines (or 20 lines) in the preview window.
         # Otherwise, try to set it using tput.
         if [[ -n "$FZF_PREVIEW_COLUMNS" ]]; then
-            max_string=$(( FZF_PREVIEW_COLUMNS * 5 ))
+            prev_lines=20
+            if [[ -n "$FZF_PREVIEW_LINES" ]]; then
+                prev_lines=$(( FZF_PREVIEW_LINES - 1 ))
+            fi
+            max_string=$(( FZF_PREVIEW_COLUMNS * prev_lines ))
         elif command -v 'tput' > /dev/null 2>&1; then
             max_string="$( tput cols )"
             if [[ "$max_string" -lt "$min_trunc" ]]; then
