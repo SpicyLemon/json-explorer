@@ -272,7 +272,7 @@ if $show_path == "yes" or $show_path == "only" then [.[]|.str=(.arr|to_path)] el
 .[] | . as $path |
 if $show_data == "yes" or $show_path != "only" then .data=($data|getpath($path.arr)) else . end |
 if $show_path == "yes" then
-    .info=(.data|get_info($max_string - ($path_delim|length) - ($path.str|length)))
+    .info=(.data|get_info(if $max_string == 0 then 0 else $max_string - ($path_delim|length) - ($path.str|length) end))
 elif $show_path != "only" then
     .info=(.data|get_info($max_string))
 else . end |
