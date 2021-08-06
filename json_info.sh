@@ -234,21 +234,26 @@ EOF
         jq_args+=( --argjson data "[$input]" )
     fi
 
-    jq_filter='def null_info:    "null";
-def boolean_info: "boolean: " + (.|tostring);
-def number_info:  "number: " + (.|tostring);
-def string_info($max_info_string):  "string: " + (.|@json| if $max_info_string == 0 or (.|length) <= ($max_info_string - 8) then . elif $max_info_string <= 11 then "..."  else (.[0:$max_info_string-11] + "...") end );
-def array_info:   "array: " + (.|length|tostring) + " " + (if (.|length) == 1 then "entry" else "entries" end ) + ": " +
-                  ([.[]|type] | reduce .[] as $item ([]; if (.|contains([$item])|not) then . + [$item] else . end) | tostring | gsub("[\\]\\[\"]"; "") | gsub(","; " "));
-def object_info:  "object: " + (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys_unsorted|tostring);
-def get_info($max_info_string_len): if (.|type) == "null" then (.|null_info)
-   elif (.|type) == "boolean" then (.|boolean_info)
-   elif (.|type) == "number" then (.|number_info)
-   elif (.|type) == "string" then (.|string_info($max_info_string_len))
-   elif (.|type) == "array" then (.|array_info)
-   elif (.|type) == "object" then (.|object_info)
-   else "unknown type"
-end;
+    jq_filter='def object_info: (.|length|tostring) + " " + (if (.|length) == 1 then "key" else "keys" end ) + ": " + (.|keys_unsorted|tostring);
+def array_info: (.|length|tostring) + " " + ( if (.|length) == 1 then "entry" else "entries" end ) + ": " +
+    ( [.[]|type] | reduce .[] as $item ([]; if (.|contains([$item])|not) then . + [$item] else . end ) |
+      tostring | gsub("[\\]\\[\"]"; "") | gsub(","; " ") );
+def string_info($max_info_string):  @json |
+    if $max_info_string == 0 or (.|length) <= ($max_info_string - 8) then .
+    elif $max_info_string <= 11 then "..."
+    else (.[0:$max_info_string-11] + "...")
+    end;
+def get_info($max_info_string_len): (.|type) as $dt |
+    if $dt == "null" then "null"
+    else $dt + ": " + (
+        if $dt == "object" then (.|object_info)
+        elif $dt == "array" then (.|array_info)
+        elif $dt == "string" then (.|string_info($max_info_string_len))
+        elif $dt == "boolean" or $dt == "number" then (.|tostring)
+        else "unexpected type"
+        end
+    )
+    end;
 def to_path: reduce .[] as $item ("";
     if ($item|type) == "number" or ($item|@json|test("^\"[a-zA-Z_][a-zA-Z0-9_]*\"$")|not) then
         . + "[" + ($item|@json) + "]"
@@ -266,7 +271,7 @@ if $show_path == "yes" or $show_path == "only" then [.[]|.str=(.arr|to_path)] el
 
 .[] | . as $path |
 if $show_data == "yes" or $show_path != "only" then .data=($data|getpath($path.arr)) else . end |
-if $show_path == "yes" then
+if $show_path == "yes" and $max_string != 0 then
     .info=(.data|get_info($max_string - ($path_delim|length) - ($path.str|length)))
 elif $show_path != "only" then
     .info=(.data|get_info($max_string))
