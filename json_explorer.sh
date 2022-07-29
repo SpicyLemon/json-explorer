@@ -15,7 +15,11 @@
 
 json_explorer () {
     local do_not_run
-    for req_cmd in 'jq' 'fzf' 'json_info'; do
+    if [[ -z "$JSON_INFO_CMD" ]]; then
+        printf 'unable to locate json_info script.\n' >&2
+        return 1
+    fi
+    for req_cmd in 'jq' 'fzf' 'json_info' "$JSON_INFO_CMD"; do
         if ! command -v "$req_cmd" > /dev/null 2>&1; then
             do_not_run='yes'
             printf 'Missing required command: %s\n' "$req_cmd" >&2
@@ -64,7 +68,7 @@ EOF
     fi
 
     # Prompt for paths to be selected
-    selections="$( json_info --just-paths -r -f "$filename" | fzf --multi --preview="printf '%s\n' {} && json_info -p {} -f '$filename' -d" --preview-window=':40%:wrap' --tac --cycle )"
+    selections="$( json_info --just-paths -r -f "$filename" | fzf --multi --preview="printf '%s\n' {} && '$JSON_INFO_CMD' -p {} -f '$filename' -d" --preview-window=':40%:wrap' --tac --cycle )"
     result='[]'
     while IFS= read -r jpath; do
         if [[ -n "$jpath" ]]; then

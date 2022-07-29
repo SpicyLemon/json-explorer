@@ -296,12 +296,10 @@ if [[ "$sourced" != 'YES' ]]; then
     exit $?
 fi
 unset sourced
-cannot_export_f="$( export -f json_info )"
-if [[ -n "$cannot_export_f" ]]; then
-    export json_info="$( sed 's/^json_info ()/()/' <<< "$cannot_export_f" )"
-else
-    export -f json_info
-fi
-unset cannot_export
+# The json_info command is used in the preview window of fzf for the json_explorer.
+# But fzf can't find local environment functions, and exporting isn't always an option.
+# In order to get around that, in here, we'll just set a JSON_INFO_CMD env var that points to this file.
+# Then, over there, we can just use that instead of trying to call the json_info as a function.
+export JSON_INFO_CMD="$( readlink -f "${BASH_SOURCE:-$0}" )"
 
 return 0
