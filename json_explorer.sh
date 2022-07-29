@@ -14,11 +14,11 @@
 ) && sourced='YES' || sourced='NO'
 
 json_explorer () {
-    local do_not_run
     if [[ -z "$JSON_INFO_CMD" ]]; then
-        printf 'unable to locate json_info script.\n' >&2
+        printf 'unable to locate json_info file.\n' >&2
         return 1
     fi
+    local do_not_run req_cmd
     for req_cmd in 'jq' 'fzf' 'json_info' "$JSON_INFO_CMD"; do
         if ! command -v "$req_cmd" > /dev/null 2>&1; then
             do_not_run='yes'
