@@ -68,7 +68,7 @@ EOF
     fi
 
     # Prompt for paths to be selected
-    selections="$( json_info --just-paths -r -f "$filename" | fzf --multi --preview="printf '%s\n' {} && '$JSON_INFO_CMD' -p {} -f '$filename' -d" --preview-window=':40%:wrap' --tac --cycle )"
+    selections="$( json_info --just-paths -r -f "$filename" | fzf --multi --preview="printf '%s\n' {} && '$JSON_INFO_CMD' -p {} -f '$filename' -d" --preview-window=':40%:wrap' --layout reverse-list --cycle )"
     result='[]'
     while IFS= read -r jpath; do
         if [[ -n "$jpath" ]]; then
